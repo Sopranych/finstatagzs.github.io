@@ -11,6 +11,7 @@
         :root{
             --bg:#1d5363; --bg2:#143a47; --panel:rgba(255,255,255,0.05); --border:#2a6b7a;
             --text:#ffffff; --text-secondary:#B0D4E0; --gold:#F9A825; --teal:#26C6DA;
+            --teal-hover:#00ACC1; --red:#EF5350;
         }
         *{box-sizing:border-box;}
         body{ margin:0; font-family:'Inter',sans-serif; background:linear-gradient(160deg,var(--bg) 0%, var(--bg2) 100%); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; }
@@ -24,28 +25,40 @@
         .login-box label{font-size:13px;color:var(--text-secondary);margin-top:10px;}
         .login-box input{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;}
         .login-box input:focus{border-color:var(--teal);}
-        .login-error{display:none;color:#EF5350;font-size:13px;margin-top:8px;}
+        .login-error{display:none;color:var(--red);font-size:13px;margin-top:8px;}
         .btn{background:var(--teal);color:#08303a;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;padding:10px 16px;cursor:pointer;width:100%;margin-top:20px;transition:background .2s;}
-        .btn:hover{background:#00ACC1;}
+        .btn:hover{background:var(--teal-hover);}
+        .app-header{display:flex;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);}
+        .role-badge{font-size:13px;color:var(--text-secondary);background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:6px 12px;border-radius:20px;}
+        .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:8px;cursor:pointer;width:auto;margin:0;}
+        .btn-ghost:hover{background:rgba(255,255,255,0.08);}
+        .main-content{padding:40px; text-align:center; max-width:600px; margin:0 auto;}
     </style>
 </head>
 <body>
     <div id="app"></div>
     <script>
         (function() {
-            // ЕДИНСТВЕННОЕ ОБЪЯВЛЕНИЕ supabase
+            // ===================== КОНФИГ =====================
             const SUPABASE_URL = 'https://rytseubhyqcflfavswxj.supabase.co';
             const SUPABASE_ANON_KEY = 'sb_publishable_EZo58WdexigTVa0JUFfwjw_-6tae58Y';
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            // НЕ СОЗДАЁМ НОВУЮ ПЕРЕМЕННУЮ, используем уже существующий supabase из глобального объекта
+            // Если supabase ещё не создан (например, скрипт загрузился, но не инициализирован), создадим его один раз.
+            if (!window._supabaseClient) {
+                window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            const supabase = window._supabaseClient; // просто ссылка
 
             let session = null;
 
-            window.doLogin = async function(e) {
+            // ===================== ФУНКЦИЯ ВХОДА =====================
+            async function doLogin(e) {
                 e.preventDefault();
                 const u = document.getElementById('loginUser').value.trim();
                 const p = document.getElementById('loginPass').value;
                 const errorDiv = document.getElementById('loginError');
                 errorDiv.style.display = 'none';
+
                 try {
                     let email = u;
                     if (!email.includes('@')) email = u + '@test.ru';
@@ -64,15 +77,17 @@
                     console.error(err);
                     errorDiv.style.display = 'block';
                 }
-            };
+            }
 
-            window.logout = async function() {
+            // ===================== ВЫХОД =====================
+            async function logout() {
                 await supabase.auth.signOut();
                 session = null;
                 localStorage.removeItem('supabaseSession');
                 renderApp();
-            };
+            }
 
+            // ===================== РЕНДЕРИНГ =====================
             function renderLogin() {
                 return `
                 <div class="login-page">
@@ -94,10 +109,18 @@
 
             function renderDashboard() {
                 return `
-                <div style="padding:40px; text-align:center; max-width:600px; margin:0 auto; background:rgba(255,255,255,0.05); border-radius:16px; border:1px solid var(--border);">
+                <div class="app-header">
+                  <div><i class="fa-solid fa-chart-line" style="color:#26C6DA"></i> Финансовый дашборд</div>
+                  <div>
+                    <span class="role-badge">${session.role === 'admin' ? 'Администратор' : 'Пользователь'}</span>
+                    <button class="btn-ghost" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
+                  </div>
+                </div>
+                <div class="main-content">
                   <h2>Добро пожаловать, ${session.role === 'admin' ? 'администратор' : 'пользователь'}!</h2>
                   <p style="color:var(--text-secondary);">Вы успешно вошли в систему.</p>
-                  <button onclick="logout()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:10px;">Выйти</button>
+                  <p style="color:var(--text-secondary);">Полный функционал дашборда будет доступен после загрузки данных.</p>
+                  <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--teal); margin-top:20px;"></i>
                 </div>`;
             }
 
@@ -110,7 +133,7 @@
                 }
             }
 
-            // Восстановление сессии
+            // ===================== ВОССТАНОВЛЕНИЕ СЕССИИ =====================
             async function checkSession() {
                 try {
                     const stored = localStorage.getItem('supabaseSession');
@@ -133,6 +156,10 @@
                 }
             }
 
+            // Делаем функции глобальными для вызова из HTML
+            window.doLogin = doLogin;
+            window.logout = logout;
+            // Запускаем проверку
             checkSession();
         })();
     </script>
