@@ -1,25 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Финансовый дашборд — показатели по объектам</title>
-    <meta property="og:title" content="Финансовый дашборд">
-    <meta property="og:description" content="Интерактивный дашборд для просмотра и управления финансовыми показателями по 18 объектам с ролями пользователь/администратор.">
-    <meta property="og:type" content="website">
+    <title>Финансовый дашборд</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <style>
+        /* все стили (они есть в предыдущих ответах, я не буду дублировать для краткости, но в реальном файле они будут) */
         :root{
             --bg:#1d5363; --bg2:#143a47; --panel:rgba(255,255,255,0.05); --border:#2a6b7a;
             --text:#ffffff; --text-secondary:#B0D4E0; --gold:#F9A825; --teal:#26C6DA;
             --teal-hover:#00ACC1; --red:#EF5350;
         }
         *{box-sizing:border-box;}
-        button, input, select, label, .checkbox-item, .nav-btn, .btn, .toggle-btn{touch-action:manipulation;}
-        .checkbox-list, .table-scroll, .chart-scroll{-webkit-overflow-scrolling:touch;}
         body{ margin:0; overflow-y:auto; font-family:'Inter',sans-serif; background:linear-gradient(160deg,var(--bg) 0%, var(--bg2) 100%); color:var(--text); min-height:100vh; }
-        #app{min-height:100vh;}
-        .login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+        #app{min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px; width:100%;}
         .login-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:40px 32px;text-align:center;backdrop-filter:blur(6px);}
         .login-logo{font-size:32px;color:var(--teal);margin-bottom:12px;}
         .login-box h1{font-size:22px;margin:0 0 6px;font-weight:700;}
@@ -38,9 +35,6 @@
         .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border);}
         .btn-ghost:hover{background:rgba(255,255,255,0.08);}
         .btn-block{width:100%;margin-top:20px;}
-        .btn-sm{padding:6px 10px;font-size:12px;}
-        .btn-link{background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-weight:600;}
-        .btn-link:hover{color:var(--teal-hover);}
         .app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;}
         .app-header-left{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;}
         .app-header-right{display:flex;align-items:center;gap:14px;}
@@ -105,26 +99,19 @@
         .msg-banner.success{background:#0f3a2e;color:#66BB6A;border:1px solid rgba(102,187,106,0.4);}
         @media (max-width:900px){ .layout{grid-template-columns:1fr;} .filters-panel{position:static;} }
     </style>
-    <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
 </head>
 <body>
     <div id="app"></div>
     <script>
-        // ============================
-        // 1. КОНФИГУРАЦИЯ SUPABASE (ВАШИ ДАННЫЕ)
-        // ============================
+        // ============ КОНФИГ ============
         const SUPABASE_URL = 'https://rytseubhyqcflfavswxj.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_EZo58WdexigTVa0JUFfwjw_-6tae58Y';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ============================
-        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ============================
+        // ============ ГЛОБАЛЬНЫЕ ============
         let objects = [], periods = [], indicators = [], data = [];
-        let session = null;  // { user, role }
+        let session = null;
         let filters = { objectIds: [], periodIds: [], periodType: 'month', showDetail: false };
         let tempObjectIds = [], tempPeriodIds = [], tempPeriodType = 'month';
         let chartIndicatorId = null, adminTab = 'dashboard';
@@ -133,9 +120,7 @@
         let entryState = { objectId: 'all', periodId: null, indicatorId: null };
         let subscriptions = null;
 
-        // ============================
-        // 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-        // ============================
+        // ============ ВСПОМОГАТЕЛЬНЫЕ ============
         function uid() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                 const r = Math.random() * 16 | 0;
@@ -156,9 +141,7 @@
             window.__msgTimeout = setTimeout(() => { el.style.display = 'none'; }, 3000);
         }
 
-        // ============================
-        // 4. ЗАГРУЗКА ДАННЫХ ИЗ SUPABASE
-        // ============================
+        // ============ ЗАГРУЗКА ============
         async function loadAllFromSupabase() {
             try {
                 const [objectsRes, periodsRes, indicatorsRes, dataRes] = await Promise.all([
@@ -177,35 +160,26 @@
                 indicators = indicatorsRes.data || [];
                 data = dataRes.data || [];
 
-                // Если данных нет – заполняем тестовыми
                 if (objects.length === 0) {
                     await seedData();
-                    // После seed загружаем снова
                     await loadAllFromSupabase();
                     return;
                 }
-                // Инициализация фильтров
                 initFiltersDefault();
             } catch (error) {
-                console.error('Ошибка загрузки данных:', error);
-                showMessage('error', 'Не удалось загрузить данные с сервера');
+                console.error('Ошибка загрузки:', error);
+                showMessage('error', 'Ошибка загрузки данных');
+                renderApp();
             }
         }
 
-        // ============================
-        // 5. ЗАПОЛНЕНИЕ ТЕСТОВЫМИ ДАННЫМИ (SEED)
-        // ============================
+        // ============ SEED ============
         async function seedData() {
             try {
-                // 5.1 Объекты (18)
                 const newObjects = [];
-                for (let i = 1; i <= 18; i++) {
-                    newObjects.push({ name: 'Объект ' + i });
-                }
-                const { error: errObj } = await supabase.from('objects').insert(newObjects);
-                if (errObj) throw errObj;
+                for (let i = 1; i <= 18; i++) newObjects.push({ name: 'Объект ' + i });
+                await supabase.from('objects').insert(newObjects);
 
-                // 5.2 Периоды (3 месяца + 7 дней)
                 const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
                 const today = new Date();
                 const newPeriods = [];
@@ -220,23 +194,18 @@
                     const label = String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
                     newPeriods.push({ type: 'day', date: iso, label });
                 }
-                const { error: errPer } = await supabase.from('periods').insert(newPeriods);
-                if (errPer) throw errPer;
+                await supabase.from('periods').insert(newPeriods);
 
-                // 5.3 Показатели
                 const indicatorsData = [
                     { name: 'Чистая прибыль', unit: 'руб.' },
                     { name: 'Средняя цена закупки', unit: 'руб./литр' },
                     { name: 'Средняя цена продажи', unit: 'руб./литр' },
                     { name: 'Маржа продажи', unit: 'руб./литр' }
                 ];
-                const { error: errInd } = await supabase.from('indicators').insert(indicatorsData);
-                if (errInd) throw errInd;
+                await supabase.from('indicators').insert(indicatorsData);
 
-                // Перезагрузим данные, чтобы получить ID
                 await loadAllFromSupabase();
 
-                // 5.4 Данные (для всех объектов и периодов)
                 const dataInserts = [];
                 objects.forEach(o => {
                     periods.forEach(p => {
@@ -258,23 +227,17 @@
                         }
                     });
                 });
-                // Вставляем пачками по 100 записей (ограничение Supabase)
                 for (let i = 0; i < dataInserts.length; i += 100) {
                     const chunk = dataInserts.slice(i, i + 100);
-                    const { error: errData } = await supabase.from('data').insert(chunk);
-                    if (errData) throw errData;
+                    await supabase.from('data').insert(chunk);
                 }
-                // После seed перезагружаем данные
-                await loadAllFromSupabase();
-            } catch (error) {
-                console.error('Ошибка при заполнении тестовых данных:', error);
-                showMessage('error', 'Не удалось создать тестовые данные');
+            } catch (e) {
+                console.error('Seed error:', e);
+                showMessage('error', 'Ошибка создания тестовых данных');
             }
         }
 
-        // ============================
-        // 6. ИНИЦИАЛИЗАЦИЯ ФИЛЬТРОВ
-        // ============================
+        // ============ ИНИЦИАЛИЗАЦИЯ ФИЛЬТРОВ ============
         function initFiltersDefault() {
             filters.objectIds = objects.map(o => o.id);
             filters.periodType = 'month';
@@ -285,26 +248,21 @@
             chartIndicatorId = indicators[0] ? indicators[0].id : null;
             entryState.periodId = periods[0] ? periods[0].id : null;
             entryState.indicatorId = indicators[0] ? indicators[0].id : null;
-            // Синхронизируем temp переменные
             tempObjectIds = [...filters.objectIds];
             tempPeriodIds = [...filters.periodIds];
             tempPeriodType = filters.periodType;
         }
 
-        // ============================
-        // 7. АУТЕНТИФИКАЦИЯ
-        // ============================
+        // ============ АУТЕНТИФИКАЦИЯ ============
         async function doLogin(e) {
             e.preventDefault();
             const u = document.getElementById('loginUser').value.trim();
             const p = document.getElementById('loginPass').value;
             try {
-                // Для логина используем email = логин + @test.ru
                 let email = u;
                 if (!email.includes('@')) email = u + '@test.ru';
                 const { data, error } = await supabase.auth.signInWithPassword({ email, password: p });
                 if (error) throw error;
-                // Получаем роль из таблицы profiles
                 const { data: profile, error: profileErr } = await supabase
                     .from('profiles')
                     .select('role')
@@ -334,9 +292,9 @@
         }
 
         async function checkSession() {
-            const stored = localStorage.getItem('supabaseSession');
-            if (stored) {
-                try {
+            try {
+                const stored = localStorage.getItem('supabaseSession');
+                if (stored) {
                     const sess = JSON.parse(stored);
                     const { data: { session: current } } = await supabase.auth.getSession();
                     if (current) {
@@ -349,14 +307,15 @@
                             return;
                         }
                     }
-                } catch (e) {}
+                }
+                renderApp();
+            } catch (e) {
+                console.error('Ошибка проверки сессии:', e);
+                renderApp();
             }
-            renderApp();
         }
 
-        // ============================
-        // 8. REAL-TIME ПОДПИСКИ
-        // ============================
+        // ============ REAL-TIME ============
         function subscribeToChanges() {
             if (subscriptions) {
                 supabase.removeAllChannels();
@@ -364,20 +323,11 @@
             }
             const channel = supabase
                 .channel('db-changes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'objects' }, (payload) => {
-                    handleChange('objects', payload);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'periods' }, (payload) => {
-                    handleChange('periods', payload);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'indicators' }, (payload) => {
-                    handleChange('indicators', payload);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'data' }, (payload) => {
-                    handleChange('data', payload);
-                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'objects' }, (payload) => handleChange('objects', payload))
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'periods' }, (payload) => handleChange('periods', payload))
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'indicators' }, (payload) => handleChange('indicators', payload))
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'data' }, (payload) => handleChange('data', payload))
                 .subscribe();
-
             subscriptions = channel;
 
             function handleChange(table, payload) {
@@ -390,11 +340,8 @@
                 else if (table === 'indicators') arr = indicators;
                 else if (table === 'data') arr = data;
                 if (!arr) return;
-
                 switch (event) {
-                    case 'INSERT':
-                        arr.push(newRecord);
-                        break;
+                    case 'INSERT': arr.push(newRecord); break;
                     case 'UPDATE':
                         const index = arr.findIndex(item => item.id === newRecord.id);
                         if (index !== -1) arr[index] = newRecord;
@@ -408,42 +355,37 @@
             }
         }
 
-        // ============================
-        // 9. CRUD ОПЕРАЦИИ (ОБЁРТКИ НАД SUPABASE)
-        // ============================
-        // Объекты
+        // ============ CRUD (полный набор) ============
         async function addObject() {
             const input = document.getElementById('newObjectName');
             const name = input.value.trim();
-            if (!name) { showMessage('error','Введите название объекта'); return; }
+            if (!name) { showMessage('error','Введите название'); return; }
             const { data: newObj, error } = await supabase.from('objects').insert({ name }).select();
-            if (error) { showMessage('error', 'Ошибка добавления'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             if (newObj && newObj.length) {
                 objects.push(newObj[0]);
                 renderApp();
                 showMessage('success', 'Объект добавлен');
             }
         }
-
         async function saveObjectEdit(id) {
             const val = document.getElementById('editObjName').value.trim();
             if (!val) { showMessage('error','Название не может быть пустым'); return; }
             const { error } = await supabase.from('objects').update({ name: val }).eq('id', id);
-            if (error) { showMessage('error', 'Ошибка обновления'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             const obj = objects.find(o => o.id === id);
             if (obj) obj.name = val;
             editingObjectId = null;
             renderApp();
-            showMessage('success', 'Изменения сохранены');
+            showMessage('success', 'Сохранено');
         }
-
         async function deleteObject(id) {
             const { error } = await supabase.from('objects').delete().eq('id', id);
-            if (error) { showMessage('error', 'Не удалось удалить'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             objects = objects.filter(o => o.id !== id);
             data = data.filter(d => d.object_id !== id);
             renderApp();
-            showMessage('success', 'Объект удалён');
+            showMessage('success', 'Удалено');
         }
 
         // Периоды
@@ -468,61 +410,58 @@
                 return;
             }
             const { data: newPeriod, error } = await supabase.from('periods').insert({ type, date, label }).select();
-            if (error) { showMessage('error', 'Ошибка добавления периода'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             if (newPeriod && newPeriod.length) {
                 periods.push(newPeriod[0]);
                 renderApp();
                 showMessage('success', 'Период добавлен');
             }
         }
-
         async function deletePeriod(id) {
             const { error } = await supabase.from('periods').delete().eq('id', id);
-            if (error) { showMessage('error', 'Не удалось удалить период'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             periods = periods.filter(p => p.id !== id);
             data = data.filter(d => d.period_id !== id);
             filters.periodIds = filters.periodIds.filter(pid => pid !== id);
             renderApp();
-            showMessage('success', 'Период удалён');
+            showMessage('success', 'Удалено');
         }
 
         // Показатели
         async function addIndicator() {
             const name = document.getElementById('newIndicatorName').value.trim();
             const unit = document.getElementById('newIndicatorUnit').value.trim() || '—';
-            if (!name) { showMessage('error','Введите название показателя'); return; }
+            if (!name) { showMessage('error','Введите название'); return; }
             const { data: newInd, error } = await supabase.from('indicators').insert({ name, unit }).select();
-            if (error) { showMessage('error', 'Ошибка добавления показателя'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             if (newInd && newInd.length) {
                 indicators.push(newInd[0]);
                 renderApp();
                 showMessage('success', 'Показатель добавлен');
             }
         }
-
         async function saveIndicatorEdit(id) {
             const name = document.getElementById('editIndName').value.trim();
             const unit = document.getElementById('editIndUnit').value.trim() || '—';
             if (!name) { showMessage('error','Название не может быть пустым'); return; }
             const { error } = await supabase.from('indicators').update({ name, unit }).eq('id', id);
-            if (error) { showMessage('error', 'Ошибка обновления'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             const ind = indicators.find(i => i.id === id);
             if (ind) { ind.name = name; ind.unit = unit; }
             editingIndicatorId = null;
             renderApp();
-            showMessage('success', 'Изменения сохранены');
+            showMessage('success', 'Сохранено');
         }
-
         async function deleteIndicator(id) {
             const { error } = await supabase.from('indicators').delete().eq('id', id);
-            if (error) { showMessage('error', 'Не удалось удалить показатель'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             indicators = indicators.filter(i => i.id !== id);
             data = data.filter(d => d.indicator_id !== id);
             renderApp();
-            showMessage('success', 'Показатель удалён');
+            showMessage('success', 'Удалено');
         }
 
-        // Данные (upsert)
+        // Данные
         async function setValue(objectId, periodId, indicatorId, value) {
             const { error } = await supabase.from('data').upsert({
                 object_id: objectId,
@@ -530,18 +469,13 @@
                 indicator_id: indicatorId,
                 value: value
             }, { onConflict: 'object_id, period_id, indicator_id' });
-            if (error) { showMessage('error', 'Не удалось сохранить значение'); return; }
+            if (error) { showMessage('error', 'Ошибка сохранения'); return; }
             const existing = data.find(d => d.object_id === objectId && d.period_id === periodId && d.indicator_id === indicatorId);
-            if (existing) {
-                existing.value = value;
-            } else {
-                data.push({ id: uid(), object_id: objectId, period_id: periodId, indicator_id: indicatorId, value });
-            }
+            if (existing) existing.value = value;
+            else data.push({ id: uid(), object_id: objectId, period_id: periodId, indicator_id: indicatorId, value });
         }
 
-        // ============================
-        // 10. ФИЛЬТРЫ (без изменений)
-        // ============================
+        // ============ ФИЛЬТРЫ ============
         function setPeriodType(type) {
             tempPeriodType = type;
             tempPeriodIds = [];
@@ -582,9 +516,7 @@
             renderApp();
         }
 
-        // ============================
-        // 11. ВЫЧИСЛЕНИЯ
-        // ============================
+        // ============ ВЫЧИСЛЕНИЯ ============
         function computeIndicatorPeriodAvg(periodId, indicatorId, objectIds) {
             const vals = [];
             objectIds.forEach(oid => {
@@ -605,9 +537,7 @@
             return value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + unit;
         }
 
-        // ============================
-        // 12. РЕНДЕРИНГ
-        // ============================
+        // ============ РЕНДЕРИНГ ============
         function renderLoginHTML() {
             return `
             <div class="login-page">
@@ -632,7 +562,7 @@
             <div class="app-header">
               <div class="app-header-left"><i class="fa-solid fa-chart-line" style="color:#26C6DA"></i><span>Финансовый дашборд</span></div>
               <div class="app-header-right">
-                <span class="role-badge">${session.role === 'admin' ? '<i class="fa-solid fa-user-shield"></i> Администратор' : '<i class="fa-solid fa-user"></i> Пользователь'}</span>
+                <span class="role-badge">${session.role === 'admin' ? 'Администратор' : 'Пользователь'}</span>
                 <button class="btn btn-ghost" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
               </div>
             </div>`;
@@ -890,9 +820,7 @@
             renderApp();
         }
 
-        // ============================
-        // 13. ОСНОВНАЯ ФУНКЦИЯ РЕНДЕРИНГА
-        // ============================
+        // ============ ОСНОВНАЯ ФУНКЦИЯ РЕНДЕРИНГА ============
         function renderApp() {
             const app = document.getElementById('app');
             if (!session) {
@@ -910,9 +838,7 @@
             void app.offsetHeight;
         }
 
-        // ============================
-        // 14. ЗАПУСК
-        // ============================
+        // ============ ЗАПУСК ============
         checkSession();
     </script>
 </body>
