@@ -25,14 +25,13 @@
         .login-box label{font-size:13px;color:var(--text-secondary);margin-top:10px;}
         .login-box input{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;}
         .login-box input:focus{border-color:var(--teal);}
-        .login-error{display:none;color:var(--red);font-size:13px;margin-top:8px;}
+        .login-error{display:none;color:var(--red);font-size:13px;margin-top:8px;word-break:break-word;}
         .btn{background:var(--teal);color:#08303a;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;padding:10px 16px;cursor:pointer;width:100%;margin-top:20px;transition:background .2s;}
         .btn:hover{background:var(--teal-hover);}
         .app-header{display:flex;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);}
         .role-badge{font-size:13px;color:var(--text-secondary);background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:6px 12px;border-radius:20px;}
         .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:8px;cursor:pointer;width:auto;margin:0;}
         .btn-ghost:hover{background:rgba(255,255,255,0.08);}
-        .main-content{padding:40px; text-align:center; max-width:600px; margin:0 auto;}
     </style>
 </head>
 <body>
@@ -42,12 +41,7 @@
             // ===================== КОНФИГ =====================
             const SUPABASE_URL = 'https://rytseubhyqcflfavswxj.supabase.co';
             const SUPABASE_ANON_KEY = 'sb_publishable_EZo58WdexigTVa0JUFfwjw_-6tae58Y';
-            // НЕ СОЗДАЁМ НОВУЮ ПЕРЕМЕННУЮ, используем уже существующий supabase из глобального объекта
-            // Если supabase ещё не создан (например, скрипт загрузился, но не инициализирован), создадим его один раз.
-            if (!window._supabaseClient) {
-                window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            }
-            const supabase = window._supabaseClient; // просто ссылка
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             let session = null;
 
@@ -61,20 +55,27 @@
 
                 try {
                     let email = u;
+                    // Если пользователь ввёл только имя, добавляем @test.ru
                     if (!email.includes('@')) email = u + '@test.ru';
+                    
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password: p });
                     if (error) throw error;
+                    
+                    // Получаем роль
                     const { data: profile, error: profileErr } = await supabase
                         .from('profiles')
                         .select('role')
                         .eq('id', data.user.id)
                         .single();
                     if (profileErr) throw profileErr;
+                    
                     session = { user: data.user, role: profile.role };
                     localStorage.setItem('supabaseSession', JSON.stringify(data.session));
                     renderApp();
                 } catch (err) {
-                    console.error(err);
+                    console.error('Ошибка входа:', err);
+                    // Показываем понятную ошибку
+                    errorDiv.textContent = 'Ошибка: ' + (err.message || 'Неверные учётные данные');
                     errorDiv.style.display = 'block';
                 }
             }
@@ -96,8 +97,8 @@
                     <h1>Финансовый дашборд</h1>
                     <p class="login-sub">Войдите, чтобы увидеть показатели</p>
                     <form onsubmit="doLogin(event)">
-                      <label>Логин (введите <b>user</b> или <b>admin</b>)</label>
-                      <input type="text" id="loginUser" required autocomplete="username" placeholder="user или admin" />
+                      <label>Логин (введите <b>user</b> или <b>admin</b>, или полный email)</label>
+                      <input type="text" id="loginUser" required autocomplete="username" placeholder="user, admin или user@test.ru" />
                       <label>Пароль</label>
                       <input type="password" id="loginPass" required autocomplete="current-password" placeholder="Vadim02052026 или Anton02052026" />
                       <div class="login-error" id="loginError">Неверные учётные данные</div>
@@ -116,10 +117,9 @@
                     <button class="btn-ghost" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
                   </div>
                 </div>
-                <div class="main-content">
+                <div style="padding:40px; text-align:center; max-width:600px; margin:0 auto;">
                   <h2>Добро пожаловать, ${session.role === 'admin' ? 'администратор' : 'пользователь'}!</h2>
-                  <p style="color:var(--text-secondary);">Вы успешно вошли в систему.</p>
-                  <p style="color:var(--text-secondary);">Полный функционал дашборда будет доступен после загрузки данных.</p>
+                  <p style="color:var(--text-secondary);">Вы успешно вошли в систему. Загружаем данные...</p>
                   <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--teal); margin-top:20px;"></i>
                 </div>`;
             }
@@ -156,10 +156,9 @@
                 }
             }
 
-            // Делаем функции глобальными для вызова из HTML
+            // ===================== ЗАПУСК =====================
             window.doLogin = doLogin;
             window.logout = logout;
-            // Запускаем проверку
             checkSession();
         })();
     </script>
