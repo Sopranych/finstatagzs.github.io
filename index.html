@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Финансовый дашборд — показатели по объектам</title>
+    <title>Финансовый дашборд</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -108,18 +108,18 @@
 <body>
     <div id="app"></div>
     <script>
-        // ============================================================
+        // =================================================================
         // 1. КОНФИГУРАЦИЯ SUPABASE
-        // ============================================================
+        // =================================================================
         const SUPABASE_URL = 'https://rytseubhyqcflfavswxj.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_EZo58WdexigTVa0JUFfwjw_-6tae58Y';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ============================================================
+        // =================================================================
         // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ============================================================
+        // =================================================================
         let objects = [], periods = [], indicators = [], data = [];
-        let session = null;
+        let session = null; // { user, role }
         let filters = { objectIds: [], periodIds: [], periodType: 'month', showDetail: false };
         let tempObjectIds = [], tempPeriodIds = [], tempPeriodType = 'month';
         let chartIndicatorId = null, adminTab = 'dashboard';
@@ -128,9 +128,9 @@
         let entryState = { objectId: 'all', periodId: null, indicatorId: null };
         let subscriptions = null;
 
-        // ============================================================
+        // =================================================================
         // 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-        // ============================================================
+        // =================================================================
         function uid() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                 const r = Math.random() * 16 | 0;
@@ -151,9 +151,9 @@
             window.__msgTimeout = setTimeout(() => { el.style.display = 'none'; }, 3000);
         }
 
-        // ============================================================
+        // =================================================================
         // 4. ЗАГРУЗКА ДАННЫХ ИЗ SUPABASE
-        // ============================================================
+        // =================================================================
         async function loadAllFromSupabase() {
             try {
                 const [objectsRes, periodsRes, indicatorsRes, dataRes] = await Promise.all([
@@ -172,13 +172,13 @@
                 indicators = indicatorsRes.data || [];
                 data = dataRes.data || [];
 
+                // Если объектов нет – выполняем seed
                 if (objects.length === 0) {
                     await seedData();
                     await loadAllFromSupabase();
                     return;
                 }
                 initFiltersDefault();
-                renderApp();
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
                 showMessage('error', 'Ошибка загрузки данных: ' + error.message);
@@ -186,9 +186,9 @@
             }
         }
 
-        // ============================================================
+        // =================================================================
         // 5. ЗАПОЛНЕНИЕ ТЕСТОВЫМИ ДАННЫМИ (SEED)
-        // ============================================================
+        // =================================================================
         async function seedData() {
             try {
                 const newObjects = [];
@@ -247,15 +247,15 @@
                     await supabase.from('data').insert(chunk);
                 }
                 await loadAllFromSupabase();
-            } catch (e) {
-                console.error('Seed error:', e);
-                showMessage('error', 'Ошибка создания тестовых данных');
+            } catch (error) {
+                console.error('Ошибка при заполнении тестовых данных:', error);
+                showMessage('error', 'Не удалось создать тестовые данные');
             }
         }
 
-        // ============================================================
+        // =================================================================
         // 6. ИНИЦИАЛИЗАЦИЯ ФИЛЬТРОВ
-        // ============================================================
+        // =================================================================
         function initFiltersDefault() {
             filters.objectIds = objects.map(o => o.id);
             filters.periodType = 'month';
@@ -271,9 +271,9 @@
             tempPeriodType = filters.periodType;
         }
 
-        // ============================================================
+        // =================================================================
         // 7. АУТЕНТИФИКАЦИЯ
-        // ============================================================
+        // =================================================================
         async function doLogin(e) {
             e.preventDefault();
             const u = document.getElementById('loginUser').value.trim();
@@ -291,7 +291,7 @@
                     .eq('id', data.user.id)
                     .single();
                 if (profileErr) throw profileErr;
-                session = { user: data.user, role: profile?.role || 'user' };
+                session = { user: data.user, role: profile.role || 'user' };
                 localStorage.setItem('supabaseSession', JSON.stringify(data.session));
                 await loadAllFromSupabase();
                 subscribeToChanges();
@@ -338,9 +338,9 @@
             }
         }
 
-        // ============================================================
+        // =================================================================
         // 8. REAL-TIME ПОДПИСКИ
-        // ============================================================
+        // =================================================================
         function subscribeToChanges() {
             if (subscriptions) {
                 supabase.removeAllChannels();
@@ -380,39 +380,41 @@
             }
         }
 
-        // ============================================================
+        // =================================================================
         // 9. CRUD ОПЕРАЦИИ
-        // ============================================================
-        // Объекты
+        // =================================================================
         async function addObject() {
             const input = document.getElementById('newObjectName');
             const name = input.value.trim();
             if (!name) { showMessage('error','Введите название'); return; }
             const { data: newObj, error } = await supabase.from('objects').insert({ name }).select();
-            if (error) { showMessage('error', 'Ошибка добавления'); return; }
-            if (newObj && newObj.length) { objects.push(newObj[0]); renderApp(); showMessage('success', 'Объект добавлен'); }
+            if (error) { showMessage('error', 'Ошибка'); return; }
+            if (newObj && newObj.length) {
+                objects.push(newObj[0]);
+                renderApp();
+                showMessage('success', 'Объект добавлен');
+            }
         }
         async function saveObjectEdit(id) {
             const val = document.getElementById('editObjName').value.trim();
             if (!val) { showMessage('error','Название не может быть пустым'); return; }
             const { error } = await supabase.from('objects').update({ name: val }).eq('id', id);
-            if (error) { showMessage('error', 'Ошибка обновления'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             const obj = objects.find(o => o.id === id);
             if (obj) obj.name = val;
             editingObjectId = null;
             renderApp();
-            showMessage('success', 'Изменения сохранены');
+            showMessage('success', 'Сохранено');
         }
         async function deleteObject(id) {
             const { error } = await supabase.from('objects').delete().eq('id', id);
-            if (error) { showMessage('error', 'Не удалось удалить'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             objects = objects.filter(o => o.id !== id);
             data = data.filter(d => d.object_id !== id);
             renderApp();
-            showMessage('success', 'Объект удалён');
+            showMessage('success', 'Удалено');
         }
 
-        // Периоды
         async function addPeriod() {
             const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
             let date, label, type = newPeriodType;
@@ -429,52 +431,61 @@
                 label = monthNames[parts[1]-1]+' '+parts[0];
                 date = val + '-01';
             }
-            if (periods.some(p => p.type === type && p.date === date)) { showMessage('error','Такой период уже существует'); return; }
+            if (periods.some(p => p.type === type && p.date === date)) {
+                showMessage('error','Такой период уже существует');
+                return;
+            }
             const { data: newPeriod, error } = await supabase.from('periods').insert({ type, date, label }).select();
-            if (error) { showMessage('error', 'Ошибка добавления периода'); return; }
-            if (newPeriod && newPeriod.length) { periods.push(newPeriod[0]); renderApp(); showMessage('success', 'Период добавлен'); }
+            if (error) { showMessage('error', 'Ошибка'); return; }
+            if (newPeriod && newPeriod.length) {
+                periods.push(newPeriod[0]);
+                renderApp();
+                showMessage('success', 'Период добавлен');
+            }
         }
         async function deletePeriod(id) {
             const { error } = await supabase.from('periods').delete().eq('id', id);
-            if (error) { showMessage('error', 'Не удалось удалить период'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             periods = periods.filter(p => p.id !== id);
             data = data.filter(d => d.period_id !== id);
             filters.periodIds = filters.periodIds.filter(pid => pid !== id);
             renderApp();
-            showMessage('success', 'Период удалён');
+            showMessage('success', 'Удалено');
         }
 
-        // Показатели
         async function addIndicator() {
             const name = document.getElementById('newIndicatorName').value.trim();
             const unit = document.getElementById('newIndicatorUnit').value.trim() || '—';
-            if (!name) { showMessage('error','Введите название показателя'); return; }
+            if (!name) { showMessage('error','Введите название'); return; }
             const { data: newInd, error } = await supabase.from('indicators').insert({ name, unit }).select();
-            if (error) { showMessage('error', 'Ошибка добавления'); return; }
-            if (newInd && newInd.length) { indicators.push(newInd[0]); renderApp(); showMessage('success', 'Показатель добавлен'); }
+            if (error) { showMessage('error', 'Ошибка'); return; }
+            if (newInd && newInd.length) {
+                indicators.push(newInd[0]);
+                renderApp();
+                showMessage('success', 'Показатель добавлен');
+            }
         }
         async function saveIndicatorEdit(id) {
             const name = document.getElementById('editIndName').value.trim();
             const unit = document.getElementById('editIndUnit').value.trim() || '—';
             if (!name) { showMessage('error','Название не может быть пустым'); return; }
             const { error } = await supabase.from('indicators').update({ name, unit }).eq('id', id);
-            if (error) { showMessage('error', 'Ошибка обновления'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             const ind = indicators.find(i => i.id === id);
             if (ind) { ind.name = name; ind.unit = unit; }
             editingIndicatorId = null;
             renderApp();
-            showMessage('success', 'Изменения сохранены');
+            showMessage('success', 'Сохранено');
         }
         async function deleteIndicator(id) {
             const { error } = await supabase.from('indicators').delete().eq('id', id);
-            if (error) { showMessage('error', 'Не удалось удалить показатель'); return; }
+            if (error) { showMessage('error', 'Ошибка'); return; }
             indicators = indicators.filter(i => i.id !== id);
             data = data.filter(d => d.indicator_id !== id);
             renderApp();
-            showMessage('success', 'Показатель удалён');
+            showMessage('success', 'Удалено');
         }
 
-        // Данные (upsert)
         async function setValue(objectId, periodId, indicatorId, value) {
             const { error } = await supabase.from('data').upsert({
                 object_id: objectId,
@@ -488,9 +499,9 @@
             else data.push({ id: uid(), object_id: objectId, period_id: periodId, indicator_id: indicatorId, value });
         }
 
-        // ============================================================
+        // =================================================================
         // 10. ФИЛЬТРЫ
-        // ============================================================
+        // =================================================================
         function setPeriodType(type) {
             tempPeriodType = type;
             tempPeriodIds = [];
@@ -523,17 +534,17 @@
             document.querySelectorAll('.period-cb').forEach(cb => cb.checked = false);
         }
         function applyFilters() {
-            if (tempObjectIds.length === 0) { showMessage('error','Выберите хотя бы один объект'); return; }
-            if (tempPeriodIds.length === 0) { showMessage('error','Выберите хотя бы один период'); return; }
+            if (tempObjectIds.length === 0) { showMessage('error','Выберите объекты'); return; }
+            if (tempPeriodIds.length === 0) { showMessage('error','Выберите периоды'); return; }
             filters.objectIds = [...tempObjectIds];
             filters.periodIds = [...tempPeriodIds];
             filters.periodType = tempPeriodType;
             renderApp();
         }
 
-        // ============================================================
-        // 11. ВЫЧИСЛИТЕЛЬНЫЕ ФУНКЦИИ
-        // ============================================================
+        // =================================================================
+        // 11. ВЫЧИСЛЕНИЯ
+        // =================================================================
         function computeIndicatorPeriodAvg(periodId, indicatorId, objectIds) {
             const vals = [];
             objectIds.forEach(oid => {
@@ -554,19 +565,19 @@
             return value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + unit;
         }
 
-        // ============================================================
-        // 12. РЕНДЕРИНГ (полный)
-        // ============================================================
+        // =================================================================
+        // 12. РЕНДЕРИНГ
+        // =================================================================
         function renderLoginHTML() {
             return `
             <div class="login-page">
               <div class="login-box">
                 <div class="login-logo"><i class="fa-solid fa-chart-line"></i></div>
                 <h1>Финансовый дашборд</h1>
-                <p class="login-sub">Войдите, чтобы увидеть показатели по объектам</p>
+                <p class="login-sub">Войдите, чтобы увидеть показатели</p>
                 <form onsubmit="doLogin(event)">
-                  <label>Логин (введите <b>user</b> или <b>admin</b>, или полный email)</label>
-                  <input type="text" id="loginUser" required autocomplete="username" placeholder="user, admin или user@test.ru" />
+                  <label>Логин (введите <b>user</b> или <b>admin</b>)</label>
+                  <input type="text" id="loginUser" required autocomplete="username" placeholder="user или admin" />
                   <label>Пароль</label>
                   <input type="password" id="loginPass" required autocomplete="current-password" placeholder="Vadim02052026 или Anton02052026" />
                   <div class="login-error" id="loginError">Неверные учётные данные</div>
@@ -577,11 +588,12 @@
         }
 
         function renderHeaderHTML() {
+            const roleDisplay = session.role === 'admin' ? 'Администратор' : 'Пользователь';
             return `
             <div class="app-header">
               <div class="app-header-left"><i class="fa-solid fa-chart-line" style="color:#26C6DA"></i><span>Финансовый дашборд</span></div>
               <div class="app-header-right">
-                <span class="role-badge">${session.role === 'admin' ? '<i class="fa-solid fa-user-shield"></i> Администратор' : '<i class="fa-solid fa-user"></i> Пользователь'}</span>
+                <span class="role-badge">${roleDisplay}</span>
                 <button class="btn btn-ghost" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
               </div>
             </div>`;
@@ -599,6 +611,12 @@
         }
 
         function switchAdminTab(tab) { adminTab = tab; renderApp(); }
+
+        function renderPeriodCheckboxesInner() {
+            const list = periods.filter(p => p.type === tempPeriodType).sort((a, b) => a.date.localeCompare(b.date));
+            if (list.length === 0) return `<div class="empty-hint">Нет периодов этого типа</div>`;
+            return list.map(p => `<label class="checkbox-item"><input type="checkbox" class="period-cb" value="${p.id}" ${tempPeriodIds.includes(p.id) ? 'checked' : ''} onchange="togglePeriodId('${p.id}')"/> <span>${escapeHtml(p.label)}</span></label>`).join('');
+        }
 
         function renderFiltersPanelHTML() {
             tempObjectIds = [...filters.objectIds];
@@ -626,12 +644,6 @@
             <button class="btn btn-primary btn-block" onclick="applyFilters()"><i class="fa-solid fa-check"></i> Применить</button>`;
         }
 
-        function renderPeriodCheckboxesInner() {
-            const list = periods.filter(p => p.type === tempPeriodType).sort((a, b) => a.date.localeCompare(b.date));
-            if (list.length === 0) return `<div class="empty-hint">Нет периодов этого типа</div>`;
-            return list.map(p => `<label class="checkbox-item"><input type="checkbox" class="period-cb" value="${p.id}" ${tempPeriodIds.includes(p.id) ? 'checked' : ''} onchange="togglePeriodId('${p.id}')"/> <span>${escapeHtml(p.label)}</span></label>`).join('');
-        }
-
         function renderKPIHTML() {
             if (indicators.length === 0) return `<div class="empty-hint">Нет показателей</div>`;
             const colors = ['#26C6DA','#F9A825','#AB47BC','#66BB6A','#EF5350'];
@@ -644,7 +656,7 @@
         function renderTableHTML() {
             const selPeriods = periods.filter(p => filters.periodIds.includes(p.id)).sort((a, b) => a.date.localeCompare(b.date));
             if (selPeriods.length === 0 || indicators.length === 0) {
-                return `<div class="table-card"><div class="empty-hint">Нет данных для отображения</div></div>`;
+                return `<div class="table-card"><div class="empty-hint">Нет данных</div></div>`;
             }
             const multi = filters.objectIds.length > 1;
             let header1 = `<th class="sticky-col">Объект</th>`;
@@ -697,7 +709,7 @@
             const options = indicators.map(ind => `<option value="${ind.id}" ${chartIndicatorId === ind.id ? 'selected' : ''}>${escapeHtml(ind.name)}</option>`).join('');
             let svg = '';
             if (selPeriods.length < 1 || !chartIndicatorId) {
-                svg = `<div class="empty-hint">Недостаточно данных для графика</div>`;
+                svg = `<div class="empty-hint">Недостаточно данных</div>`;
             } else {
                 const points = selPeriods.map(p => ({ label: p.label, value: computeIndicatorPeriodAvg(p.id, chartIndicatorId, filters.objectIds) }));
                 const known = points.filter(pt => pt.value !== null);
@@ -775,7 +787,6 @@
             <div class="admin-add-form"><input type="text" id="newIndicatorName" class="text-input" placeholder="Название показателя" /><input type="text" id="newIndicatorUnit" class="text-input small" placeholder="Ед. изм." /><button class="btn btn-primary" onclick="addIndicator()"><i class="fa-solid fa-plus"></i> Добавить показатель</button></div></div>`;
         }
 
-        // ---------- Ввод данных ----------
         function valueForCell(objectId) {
             const d = data.find(d => d.object_id === objectId && d.period_id === entryState.periodId && d.indicator_id === entryState.indicatorId);
             return d ? d.value : null;
@@ -839,9 +850,9 @@
             renderApp();
         }
 
-        // ============================================================
-        // 13. ОСНОВНАЯ ФУНКЦИЯ РЕНДЕРИНГА
-        // ============================================================
+        // =================================================================
+        // 13. ГЛАВНАЯ ФУНКЦИЯ РЕНДЕРИНГА
+        // =================================================================
         function renderApp() {
             const app = document.getElementById('app');
             if (!session) {
@@ -859,9 +870,9 @@
             void app.offsetHeight;
         }
 
-        // ============================================================
+        // =================================================================
         // 14. ЗАПУСК
-        // ============================================================
+        // =================================================================
         checkSession();
     </script>
 </body>
