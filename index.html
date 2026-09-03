@@ -1,52 +1,919 @@
--- Таблицы
-CREATE TABLE objects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Финансовый дашборд — показатели по объектам</title>
+    <meta property="og:title" content="Финансовый дашборд">
+    <meta property="og:description" content="Интерактивный дашборд для просмотра и управления финансовыми показателями по 18 объектам с ролями пользователь/администратор.">
+    <meta property="og:type" content="website">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --bg:#1d5363; --bg2:#143a47; --panel:rgba(255,255,255,0.05); --border:#2a6b7a;
+            --text:#ffffff; --text-secondary:#B0D4E0; --gold:#F9A825; --teal:#26C6DA;
+            --teal-hover:#00ACC1; --red:#EF5350;
+        }
+        *{box-sizing:border-box;}
+        button, input, select, label, .checkbox-item, .nav-btn, .btn, .toggle-btn{touch-action:manipulation;}
+        .checkbox-list, .table-scroll, .chart-scroll{-webkit-overflow-scrolling:touch;}
+        body{ margin:0; overflow-y:auto; font-family:'Inter',sans-serif; background:linear-gradient(160deg,var(--bg) 0%, var(--bg2) 100%); color:var(--text); min-height:100vh; }
+        #app{min-height:100vh;}
+        .login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+        .login-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:40px 32px;text-align:center;backdrop-filter:blur(6px);}
+        .login-logo{font-size:32px;color:var(--teal);margin-bottom:12px;}
+        .login-box h1{font-size:22px;margin:0 0 6px;font-weight:700;}
+        .login-sub{color:var(--text-secondary);font-size:14px;margin:0 0 28px;line-height:1.5;}
+        .login-box form{display:flex;flex-direction:column;gap:6px;text-align:left;}
+        .login-box label{font-size:13px;color:var(--text-secondary);margin-top:10px;}
+        .login-box input{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;}
+        .login-box input:focus{border-color:var(--teal);}
+        .login-error{display:none;color:var(--red);font-size:13px;margin-top:8px;}
+        .btn{cursor:pointer;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;padding:10px 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .2s, opacity .2s, transform .15s;}
+        .btn:active{transform:scale(0.97);}
+        .btn-primary{background:var(--teal);color:#08303a;}
+        .btn-primary:hover{background:var(--teal-hover);}
+        .btn-danger{background:rgba(239,83,80,0.15);color:var(--red);border:1px solid rgba(239,83,80,0.4);}
+        .btn-danger:hover{background:rgba(239,83,80,0.3);}
+        .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border);}
+        .btn-ghost:hover{background:rgba(255,255,255,0.08);}
+        .btn-block{width:100%;margin-top:20px;}
+        .btn-sm{padding:6px 10px;font-size:12px;}
+        .btn-link{background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-weight:600;}
+        .btn-link:hover{color:var(--teal-hover);}
+        .app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;}
+        .app-header-left{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;}
+        .app-header-right{display:flex;align-items:center;gap:14px;}
+        .role-badge{font-size:13px;color:var(--text-secondary);background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:6px 12px;border-radius:20px;}
+        .app-nav{display:flex;gap:6px;padding:10px 28px;border-bottom:1px solid var(--border);overflow-x:auto;}
+        .nav-btn{background:transparent;border:1px solid transparent;color:var(--text-secondary);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .2s;}
+        .nav-btn:hover{color:var(--text);background:rgba(255,255,255,0.05);}
+        .nav-btn.active{background:var(--teal);color:#08303a;}
+        .page-wrap{max-width:900px;margin:0 auto;padding:28px;}
+        .layout{display:grid;grid-template-columns:280px 1fr;gap:24px;padding:24px 28px;max-width:1400px;margin:0 auto;align-items:start;}
+        .filters-panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;position:sticky;top:20px;}
+        .panel-title{font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+        .filter-block{margin-bottom:22px;}
+        .filter-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px;color:var(--text-secondary);font-weight:600;}
+        .filter-mini-actions{display:flex;gap:10px;}
+        .checkbox-list{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:4px;}
+        .checkbox-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);padding:6px 8px;border-radius:6px;cursor:pointer;}
+        .checkbox-item:hover{background:rgba(255,255,255,0.05);}
+        .checkbox-item input{accent-color:var(--teal);}
+        .period-type-toggle, .toggle-mini{display:flex;gap:6px;background:rgba(255,255,255,0.04);padding:4px;border-radius:8px;}
+        .toggle-btn{flex:1;background:transparent;border:none;color:var(--text-secondary);padding:8px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;}
+        .toggle-btn.active{background:var(--teal);color:#08303a;}
+        .empty-hint{color:var(--text-secondary);font-size:13px;padding:16px 0;text-align:center;}
+        .main-content{display:flex;flex-direction:column;gap:20px;min-width:0;}
+        .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;}
+        .kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;}
+        .kpi-icon{font-size:20px;margin-bottom:10px;}
+        .kpi-label{font-size:13px;color:var(--text-secondary);margin-bottom:6px;}
+        .kpi-value{font-size:22px;font-weight:800;}
+        .table-card,.chart-card,.admin-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;}
+        .table-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+        .table-title{font-weight:700;display:flex;align-items:center;gap:8px;}
+        .detail-toggle{font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;cursor:pointer;}
+        .table-scroll,.chart-scroll{overflow-x:auto;}
+        .data-table{border-collapse:collapse;width:100%;min-width:600px;}
+        .data-table th, .data-table td{padding:10px 12px;font-size:13px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+        .data-table thead th{color:var(--text-secondary);font-weight:600;}
+        .data-table .period-head{background:rgba(38,198,218,0.1);color:var(--teal);}
+        .data-table .unit{font-size:11px;color:var(--text-secondary);font-weight:400;}
+        .sticky-col{position:sticky;left:0;background:var(--bg2);text-align:left !important;z-index:1;}
+        .avg-row td{font-weight:700;color:var(--gold);}
+        .detail-row{color:var(--text-secondary);font-weight:400;padding-left:24px !important;}
+        .chart-svg{width:100%;height:260px;}
+        .admin-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+        .admin-list-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;}
+        .admin-list-name{flex:1;font-size:14px;}
+        .tag{font-size:11px;color:var(--text-secondary);background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:20px;margin-left:8px;}
+        .admin-add-form{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+        .admin-card-title{font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px;font-size:16px;}
+        .text-input, .select-input{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+        .text-input:focus, .select-input:focus{border-color:var(--teal);}
+        .select-input option{color:#08303a;background:#ffffff;}
+        .text-input.small{max-width:130px;}
+        .entry-selects{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+        .field{display:flex;flex-direction:column;gap:6px;}
+        .field label{font-size:12px;color:var(--text-secondary);font-weight:600;}
+        .bulk-fill{display:flex;gap:10px;margin-bottom:14px;}
+        .single-entry{display:flex;gap:10px;}
+        .bulk-input{width:120px;}
+        .msg-banner{position:fixed;top:20px;right:20px;display:none;align-items:center;gap:8px;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+        .msg-banner.error{background:#3a1414;color:var(--red);border:1px solid rgba(239,83,80,0.4);}
+        .msg-banner.success{background:#0f3a2e;color:#66BB6A;border:1px solid rgba(102,187,106,0.4);}
+        @media (max-width:900px){ .layout{grid-template-columns:1fr;} .filters-panel{position:static;} }
+    </style>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        // ============================
+        // 1. КОНФИГУРАЦИЯ SUPABASE (ВАШИ ДАННЫЕ)
+        // ============================
+        const SUPABASE_URL = 'https://rytseubhyqcflfavswxj.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_EZo58WdexigTVa0JUFfwjw_-6tae58Y';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-CREATE TABLE periods (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type TEXT NOT NULL CHECK (type IN ('day', 'month')),
-  date DATE NOT NULL,
-  label TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+        // ============================
+        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ============================
+        let objects = [], periods = [], indicators = [], data = [];
+        let session = null;  // { user, role }
+        let filters = { objectIds: [], periodIds: [], periodType: 'month', showDetail: false };
+        let tempObjectIds = [], tempPeriodIds = [], tempPeriodType = 'month';
+        let chartIndicatorId = null, adminTab = 'dashboard';
+        let newPeriodType = 'month';
+        let editingObjectId = null, editingIndicatorId = null;
+        let entryState = { objectId: 'all', periodId: null, indicatorId: null };
+        let subscriptions = null;
 
-CREATE TABLE indicators (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  unit TEXT NOT NULL DEFAULT '—',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+        // ============================
+        // 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // ============================
+        function uid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+        }
+        function showMessage(type, text) {
+            let el = document.getElementById('msgBanner');
+            if (!el) { el = document.createElement('div'); el.id = 'msgBanner'; el.className = 'msg-banner'; document.body.appendChild(el); }
+            el.className = 'msg-banner ' + type;
+            el.innerHTML = '<i class="fa-solid ' + (type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check') + '"></i> ' + text;
+            el.style.display = 'flex';
+            clearTimeout(window.__msgTimeout);
+            window.__msgTimeout = setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
 
-CREATE TABLE data (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  object_id UUID NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
-  period_id UUID NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
-  indicator_id UUID NOT NULL REFERENCES indicators(id) ON DELETE CASCADE,
-  value NUMERIC,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(object_id, period_id, indicator_id)
-);
+        // ============================
+        // 4. ЗАГРУЗКА ДАННЫХ ИЗ SUPABASE
+        // ============================
+        async function loadAllFromSupabase() {
+            try {
+                const [objectsRes, periodsRes, indicatorsRes, dataRes] = await Promise.all([
+                    supabase.from('objects').select('*'),
+                    supabase.from('periods').select('*'),
+                    supabase.from('indicators').select('*'),
+                    supabase.from('data').select('*')
+                ]);
+                if (objectsRes.error) throw objectsRes.error;
+                if (periodsRes.error) throw periodsRes.error;
+                if (indicatorsRes.error) throw indicatorsRes.error;
+                if (dataRes.error) throw dataRes.error;
 
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+                objects = objectsRes.data || [];
+                periods = periodsRes.data || [];
+                indicators = indicatorsRes.data || [];
+                data = dataRes.data || [];
 
--- Включаем RLS (можно временно отключить для теста, но лучше оставить)
-ALTER TABLE objects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE periods ENABLE ROW LEVEL SECURITY;
-ALTER TABLE indicators ENABLE ROW LEVEL SECURITY;
-ALTER TABLE data ENABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+                // Если данных нет – заполняем тестовыми
+                if (objects.length === 0) {
+                    await seedData();
+                    // После seed загружаем снова
+                    await loadAllFromSupabase();
+                    return;
+                }
+                // Инициализация фильтров
+                initFiltersDefault();
+            } catch (error) {
+                console.error('Ошибка загрузки данных:', error);
+                showMessage('error', 'Не удалось загрузить данные с сервера');
+            }
+        }
 
--- Даём доступ для всех аутентифицированных пользователей (для простоты)
-CREATE POLICY "Allow all for authenticated" ON objects FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow all for authenticated" ON periods FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow all for authenticated" ON indicators FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow all for authenticated" ON data FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow all for authenticated" ON profiles FOR ALL USING (auth.role() = 'authenticated');
+        // ============================
+        // 5. ЗАПОЛНЕНИЕ ТЕСТОВЫМИ ДАННЫМИ (SEED)
+        // ============================
+        async function seedData() {
+            try {
+                // 5.1 Объекты (18)
+                const newObjects = [];
+                for (let i = 1; i <= 18; i++) {
+                    newObjects.push({ name: 'Объект ' + i });
+                }
+                const { error: errObj } = await supabase.from('objects').insert(newObjects);
+                if (errObj) throw errObj;
+
+                // 5.2 Периоды (3 месяца + 7 дней)
+                const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+                const today = new Date();
+                const newPeriods = [];
+                for (let i = 2; i >= 0; i--) {
+                    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                    const iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';
+                    newPeriods.push({ type: 'month', date: iso, label: monthNames[d.getMonth()]+' '+d.getFullYear() });
+                }
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today); d.setDate(today.getDate() - i);
+                    const iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+                    const label = String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+                    newPeriods.push({ type: 'day', date: iso, label });
+                }
+                const { error: errPer } = await supabase.from('periods').insert(newPeriods);
+                if (errPer) throw errPer;
+
+                // 5.3 Показатели
+                const indicatorsData = [
+                    { name: 'Чистая прибыль', unit: 'руб.' },
+                    { name: 'Средняя цена закупки', unit: 'руб./литр' },
+                    { name: 'Средняя цена продажи', unit: 'руб./литр' },
+                    { name: 'Маржа продажи', unit: 'руб./литр' }
+                ];
+                const { error: errInd } = await supabase.from('indicators').insert(indicatorsData);
+                if (errInd) throw errInd;
+
+                // Перезагрузим данные, чтобы получить ID
+                await loadAllFromSupabase();
+
+                // 5.4 Данные (для всех объектов и периодов)
+                const dataInserts = [];
+                objects.forEach(o => {
+                    periods.forEach(p => {
+                        const buy = +(40 + Math.random() * 15).toFixed(2);
+                        const sell = +(buy + 5 + Math.random() * 10).toFixed(2);
+                        const margin = +(sell - buy).toFixed(2);
+                        const profit = Math.round(500000 + Math.random() * 2500000);
+                        const indProfit = indicators.find(ind => ind.name === 'Чистая прибыль');
+                        const indBuy = indicators.find(ind => ind.name === 'Средняя цена закупки');
+                        const indSell = indicators.find(ind => ind.name === 'Средняя цена продажи');
+                        const indMargin = indicators.find(ind => ind.name === 'Маржа продажи');
+                        if (indProfit && indBuy && indSell && indMargin) {
+                            dataInserts.push(
+                                { object_id: o.id, period_id: p.id, indicator_id: indProfit.id, value: profit },
+                                { object_id: o.id, period_id: p.id, indicator_id: indBuy.id, value: buy },
+                                { object_id: o.id, period_id: p.id, indicator_id: indSell.id, value: sell },
+                                { object_id: o.id, period_id: p.id, indicator_id: indMargin.id, value: margin }
+                            );
+                        }
+                    });
+                });
+                // Вставляем пачками по 100 записей (ограничение Supabase)
+                for (let i = 0; i < dataInserts.length; i += 100) {
+                    const chunk = dataInserts.slice(i, i + 100);
+                    const { error: errData } = await supabase.from('data').insert(chunk);
+                    if (errData) throw errData;
+                }
+                // После seed перезагружаем данные
+                await loadAllFromSupabase();
+            } catch (error) {
+                console.error('Ошибка при заполнении тестовых данных:', error);
+                showMessage('error', 'Не удалось создать тестовые данные');
+            }
+        }
+
+        // ============================
+        // 6. ИНИЦИАЛИЗАЦИЯ ФИЛЬТРОВ
+        // ============================
+        function initFiltersDefault() {
+            filters.objectIds = objects.map(o => o.id);
+            filters.periodType = 'month';
+            const monthPeriods = periods.filter(p => p.type === 'month').sort((a, b) => a.date.localeCompare(b.date));
+            const lastMonth = monthPeriods[monthPeriods.length - 1];
+            filters.periodIds = lastMonth ? [lastMonth.id] : [];
+            filters.showDetail = false;
+            chartIndicatorId = indicators[0] ? indicators[0].id : null;
+            entryState.periodId = periods[0] ? periods[0].id : null;
+            entryState.indicatorId = indicators[0] ? indicators[0].id : null;
+            // Синхронизируем temp переменные
+            tempObjectIds = [...filters.objectIds];
+            tempPeriodIds = [...filters.periodIds];
+            tempPeriodType = filters.periodType;
+        }
+
+        // ============================
+        // 7. АУТЕНТИФИКАЦИЯ
+        // ============================
+        async function doLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value;
+            try {
+                // Для логина используем email = логин + @test.ru
+                let email = u;
+                if (!email.includes('@')) email = u + '@test.ru';
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password: p });
+                if (error) throw error;
+                // Получаем роль из таблицы profiles
+                const { data: profile, error: profileErr } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', data.user.id)
+                    .single();
+                if (profileErr) throw profileErr;
+                session = { user: data.user, role: profile.role };
+                localStorage.setItem('supabaseSession', JSON.stringify(data.session));
+                await loadAllFromSupabase();
+                subscribeToChanges();
+                renderApp();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            session = null;
+            localStorage.removeItem('supabaseSession');
+            if (subscriptions) {
+                supabase.removeAllChannels();
+                subscriptions = null;
+            }
+            renderApp();
+        }
+
+        async function checkSession() {
+            const stored = localStorage.getItem('supabaseSession');
+            if (stored) {
+                try {
+                    const sess = JSON.parse(stored);
+                    const { data: { session: current } } = await supabase.auth.getSession();
+                    if (current) {
+                        const { data: profile } = await supabase.from('profiles').select('role').eq('id', current.user.id).single();
+                        if (profile) {
+                            session = { user: current.user, role: profile.role };
+                            await loadAllFromSupabase();
+                            subscribeToChanges();
+                            renderApp();
+                            return;
+                        }
+                    }
+                } catch (e) {}
+            }
+            renderApp();
+        }
+
+        // ============================
+        // 8. REAL-TIME ПОДПИСКИ
+        // ============================
+        function subscribeToChanges() {
+            if (subscriptions) {
+                supabase.removeAllChannels();
+                subscriptions = null;
+            }
+            const channel = supabase
+                .channel('db-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'objects' }, (payload) => {
+                    handleChange('objects', payload);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'periods' }, (payload) => {
+                    handleChange('periods', payload);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'indicators' }, (payload) => {
+                    handleChange('indicators', payload);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'data' }, (payload) => {
+                    handleChange('data', payload);
+                })
+                .subscribe();
+
+            subscriptions = channel;
+
+            function handleChange(table, payload) {
+                const event = payload.eventType;
+                const newRecord = payload.new;
+                const oldRecord = payload.old;
+                let arr;
+                if (table === 'objects') arr = objects;
+                else if (table === 'periods') arr = periods;
+                else if (table === 'indicators') arr = indicators;
+                else if (table === 'data') arr = data;
+                if (!arr) return;
+
+                switch (event) {
+                    case 'INSERT':
+                        arr.push(newRecord);
+                        break;
+                    case 'UPDATE':
+                        const index = arr.findIndex(item => item.id === newRecord.id);
+                        if (index !== -1) arr[index] = newRecord;
+                        break;
+                    case 'DELETE':
+                        const idx = arr.findIndex(item => item.id === oldRecord.id);
+                        if (idx !== -1) arr.splice(idx, 1);
+                        break;
+                }
+                if (session) renderApp();
+            }
+        }
+
+        // ============================
+        // 9. CRUD ОПЕРАЦИИ (ОБЁРТКИ НАД SUPABASE)
+        // ============================
+        // Объекты
+        async function addObject() {
+            const input = document.getElementById('newObjectName');
+            const name = input.value.trim();
+            if (!name) { showMessage('error','Введите название объекта'); return; }
+            const { data: newObj, error } = await supabase.from('objects').insert({ name }).select();
+            if (error) { showMessage('error', 'Ошибка добавления'); return; }
+            if (newObj && newObj.length) {
+                objects.push(newObj[0]);
+                renderApp();
+                showMessage('success', 'Объект добавлен');
+            }
+        }
+
+        async function saveObjectEdit(id) {
+            const val = document.getElementById('editObjName').value.trim();
+            if (!val) { showMessage('error','Название не может быть пустым'); return; }
+            const { error } = await supabase.from('objects').update({ name: val }).eq('id', id);
+            if (error) { showMessage('error', 'Ошибка обновления'); return; }
+            const obj = objects.find(o => o.id === id);
+            if (obj) obj.name = val;
+            editingObjectId = null;
+            renderApp();
+            showMessage('success', 'Изменения сохранены');
+        }
+
+        async function deleteObject(id) {
+            const { error } = await supabase.from('objects').delete().eq('id', id);
+            if (error) { showMessage('error', 'Не удалось удалить'); return; }
+            objects = objects.filter(o => o.id !== id);
+            data = data.filter(d => d.object_id !== id);
+            renderApp();
+            showMessage('success', 'Объект удалён');
+        }
+
+        // Периоды
+        async function addPeriod() {
+            const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+            let date, label, type = newPeriodType;
+            if (type === 'day') {
+                const val = document.getElementById('newPeriodDate').value;
+                if (!val) { showMessage('error','Укажите дату'); return; }
+                const d = new Date(val + 'T00:00:00');
+                label = String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+                date = val;
+            } else {
+                const val = document.getElementById('newPeriodMonth').value;
+                if (!val) { showMessage('error','Укажите месяц'); return; }
+                const parts = val.split('-').map(Number);
+                label = monthNames[parts[1]-1]+' '+parts[0];
+                date = val + '-01';
+            }
+            if (periods.some(p => p.type === type && p.date === date)) {
+                showMessage('error','Такой период уже существует');
+                return;
+            }
+            const { data: newPeriod, error } = await supabase.from('periods').insert({ type, date, label }).select();
+            if (error) { showMessage('error', 'Ошибка добавления периода'); return; }
+            if (newPeriod && newPeriod.length) {
+                periods.push(newPeriod[0]);
+                renderApp();
+                showMessage('success', 'Период добавлен');
+            }
+        }
+
+        async function deletePeriod(id) {
+            const { error } = await supabase.from('periods').delete().eq('id', id);
+            if (error) { showMessage('error', 'Не удалось удалить период'); return; }
+            periods = periods.filter(p => p.id !== id);
+            data = data.filter(d => d.period_id !== id);
+            filters.periodIds = filters.periodIds.filter(pid => pid !== id);
+            renderApp();
+            showMessage('success', 'Период удалён');
+        }
+
+        // Показатели
+        async function addIndicator() {
+            const name = document.getElementById('newIndicatorName').value.trim();
+            const unit = document.getElementById('newIndicatorUnit').value.trim() || '—';
+            if (!name) { showMessage('error','Введите название показателя'); return; }
+            const { data: newInd, error } = await supabase.from('indicators').insert({ name, unit }).select();
+            if (error) { showMessage('error', 'Ошибка добавления показателя'); return; }
+            if (newInd && newInd.length) {
+                indicators.push(newInd[0]);
+                renderApp();
+                showMessage('success', 'Показатель добавлен');
+            }
+        }
+
+        async function saveIndicatorEdit(id) {
+            const name = document.getElementById('editIndName').value.trim();
+            const unit = document.getElementById('editIndUnit').value.trim() || '—';
+            if (!name) { showMessage('error','Название не может быть пустым'); return; }
+            const { error } = await supabase.from('indicators').update({ name, unit }).eq('id', id);
+            if (error) { showMessage('error', 'Ошибка обновления'); return; }
+            const ind = indicators.find(i => i.id === id);
+            if (ind) { ind.name = name; ind.unit = unit; }
+            editingIndicatorId = null;
+            renderApp();
+            showMessage('success', 'Изменения сохранены');
+        }
+
+        async function deleteIndicator(id) {
+            const { error } = await supabase.from('indicators').delete().eq('id', id);
+            if (error) { showMessage('error', 'Не удалось удалить показатель'); return; }
+            indicators = indicators.filter(i => i.id !== id);
+            data = data.filter(d => d.indicator_id !== id);
+            renderApp();
+            showMessage('success', 'Показатель удалён');
+        }
+
+        // Данные (upsert)
+        async function setValue(objectId, periodId, indicatorId, value) {
+            const { error } = await supabase.from('data').upsert({
+                object_id: objectId,
+                period_id: periodId,
+                indicator_id: indicatorId,
+                value: value
+            }, { onConflict: 'object_id, period_id, indicator_id' });
+            if (error) { showMessage('error', 'Не удалось сохранить значение'); return; }
+            const existing = data.find(d => d.object_id === objectId && d.period_id === periodId && d.indicator_id === indicatorId);
+            if (existing) {
+                existing.value = value;
+            } else {
+                data.push({ id: uid(), object_id: objectId, period_id: periodId, indicator_id: indicatorId, value });
+            }
+        }
+
+        // ============================
+        // 10. ФИЛЬТРЫ (без изменений)
+        // ============================
+        function setPeriodType(type) {
+            tempPeriodType = type;
+            tempPeriodIds = [];
+            document.getElementById('periodCheckboxContainer').innerHTML = renderPeriodCheckboxesInner();
+        }
+        function toggleObjectId(id) {
+            const idx = tempObjectIds.indexOf(id);
+            if (idx > -1) tempObjectIds.splice(idx, 1);
+            else tempObjectIds.push(id);
+        }
+        function togglePeriodId(id) {
+            const idx = tempPeriodIds.indexOf(id);
+            if (idx > -1) tempPeriodIds.splice(idx, 1);
+            else tempPeriodIds.push(id);
+        }
+        function selectAllObjects() {
+            tempObjectIds = objects.map(o => o.id);
+            document.querySelectorAll('.obj-cb').forEach(cb => cb.checked = true);
+        }
+        function selectNoneObjects() {
+            tempObjectIds = [];
+            document.querySelectorAll('.obj-cb').forEach(cb => cb.checked = false);
+        }
+        function selectAllPeriods() {
+            tempPeriodIds = periods.filter(p => p.type === tempPeriodType).map(p => p.id);
+            document.querySelectorAll('.period-cb').forEach(cb => cb.checked = true);
+        }
+        function selectNonePeriods() {
+            tempPeriodIds = [];
+            document.querySelectorAll('.period-cb').forEach(cb => cb.checked = false);
+        }
+        function applyFilters() {
+            if (tempObjectIds.length === 0) { showMessage('error','Выберите хотя бы один объект'); return; }
+            if (tempPeriodIds.length === 0) { showMessage('error','Выберите хотя бы один период'); return; }
+            filters.objectIds = [...tempObjectIds];
+            filters.periodIds = [...tempPeriodIds];
+            filters.periodType = tempPeriodType;
+            renderApp();
+        }
+
+        // ============================
+        // 11. ВЫЧИСЛЕНИЯ
+        // ============================
+        function computeIndicatorPeriodAvg(periodId, indicatorId, objectIds) {
+            const vals = [];
+            objectIds.forEach(oid => {
+                const d = data.find(d => d.object_id === oid && d.period_id === periodId && d.indicator_id === indicatorId);
+                if (d && d.value !== null && d.value !== undefined) vals.push(d.value);
+            });
+            if (vals.length === 0) return null;
+            return vals.reduce((a, b) => a + b, 0) / vals.length;
+        }
+        function computeKPI(indicatorId) {
+            const vals = filters.periodIds.map(pid => computeIndicatorPeriodAvg(pid, indicatorId, filters.objectIds)).filter(v => v !== null);
+            if (vals.length === 0) return null;
+            return vals.reduce((a, b) => a + b, 0) / vals.length;
+        }
+        function formatValue(value, unit) {
+            if (value === null || value === undefined) return '—';
+            if (unit === 'руб.') return Math.round(value).toLocaleString('ru-RU') + ' ' + unit;
+            return value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + unit;
+        }
+
+        // ============================
+        // 12. РЕНДЕРИНГ
+        // ============================
+        function renderLoginHTML() {
+            return `
+            <div class="login-page">
+              <div class="login-box">
+                <div class="login-logo"><i class="fa-solid fa-chart-line"></i></div>
+                <h1>Финансовый дашборд</h1>
+                <p class="login-sub">Войдите, чтобы увидеть показатели по объектам</p>
+                <form onsubmit="doLogin(event)">
+                  <label>Логин (email)</label>
+                  <input type="text" id="loginUser" required autocomplete="username" placeholder="user или admin" />
+                  <label>Пароль</label>
+                  <input type="password" id="loginPass" required autocomplete="current-password" />
+                  <div class="login-error" id="loginError">Неверные учётные данные</div>
+                  <button type="submit" class="btn btn-primary btn-block">Войти</button>
+                </form>
+              </div>
+            </div>`;
+        }
+
+        function renderHeaderHTML() {
+            return `
+            <div class="app-header">
+              <div class="app-header-left"><i class="fa-solid fa-chart-line" style="color:#26C6DA"></i><span>Финансовый дашборд</span></div>
+              <div class="app-header-right">
+                <span class="role-badge">${session.role === 'admin' ? '<i class="fa-solid fa-user-shield"></i> Администратор' : '<i class="fa-solid fa-user"></i> Пользователь'}</span>
+                <button class="btn btn-ghost" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
+              </div>
+            </div>`;
+        }
+
+        function renderNavHTML() {
+            const tabs = [
+                { id: 'dashboard', label: 'Дашборд', icon: 'fa-gauge-high' },
+                { id: 'objects', label: 'Объекты', icon: 'fa-building' },
+                { id: 'periods', label: 'Периоды', icon: 'fa-calendar-days' },
+                { id: 'indicators', label: 'Показатели', icon: 'fa-list-check' },
+                { id: 'entry', label: 'Ввод данных', icon: 'fa-keyboard' }
+            ];
+            return `<div class="app-nav">${tabs.map(t => `<button class="nav-btn ${adminTab === t.id ? 'active' : ''}" onclick="switchAdminTab('${t.id}')"><i class="fa-solid ${t.icon}"></i> ${t.label}</button>`).join('')}</div>`;
+        }
+
+        function switchAdminTab(tab) { adminTab = tab; renderApp(); }
+
+        function renderFiltersPanelHTML() {
+            tempObjectIds = [...filters.objectIds];
+            tempPeriodIds = [...filters.periodIds];
+            tempPeriodType = filters.periodType;
+            return `
+            <div class="panel-title"><i class="fa-solid fa-sliders"></i> Фильтры</div>
+            <div class="filter-block">
+              <div class="filter-label-row"><span>Объекты</span>
+                <div class="filter-mini-actions"><button class="btn-link" onclick="selectAllObjects()">Все</button><button class="btn-link" onclick="selectNoneObjects()">Очистить</button></div>
+              </div>
+              <div class="checkbox-list" id="objectCheckboxContainer">
+                ${objects.map(o => `<label class="checkbox-item"><input type="checkbox" class="obj-cb" value="${o.id}" ${tempObjectIds.includes(o.id) ? 'checked' : ''} onchange="toggleObjectId('${o.id}')"/> <span>${escapeHtml(o.name)}</span></label>`).join('')}
+              </div>
+            </div>
+            <div class="filter-block">
+              <div class="filter-label-row"><span>Период</span></div>
+              <div class="period-type-toggle">
+                <button class="toggle-btn ${tempPeriodType === 'day' ? 'active' : ''}" onclick="setPeriodType('day')">Дни</button>
+                <button class="toggle-btn ${tempPeriodType === 'month' ? 'active' : ''}" onclick="setPeriodType('month')">Месяцы</button>
+              </div>
+              <div class="filter-mini-actions" style="margin:8px 0;"><button class="btn-link" onclick="selectAllPeriods()">Все</button><button class="btn-link" onclick="selectNonePeriods()">Очистить</button></div>
+              <div class="checkbox-list" id="periodCheckboxContainer">${renderPeriodCheckboxesInner()}</div>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="applyFilters()"><i class="fa-solid fa-check"></i> Применить</button>`;
+        }
+
+        function renderPeriodCheckboxesInner() {
+            const list = periods.filter(p => p.type === tempPeriodType).sort((a, b) => a.date.localeCompare(b.date));
+            if (list.length === 0) return `<div class="empty-hint">Нет периодов этого типа</div>`;
+            return list.map(p => `<label class="checkbox-item"><input type="checkbox" class="period-cb" value="${p.id}" ${tempPeriodIds.includes(p.id) ? 'checked' : ''} onchange="togglePeriodId('${p.id}')"/> <span>${escapeHtml(p.label)}</span></label>`).join('');
+        }
+
+        function renderKPIHTML() {
+            if (indicators.length === 0) return `<div class="empty-hint">Нет показателей</div>`;
+            const colors = ['#26C6DA','#F9A825','#AB47BC','#66BB6A','#EF5350'];
+            return `<div class="kpi-grid">${indicators.map((ind, i) => {
+                const val = computeKPI(ind.id);
+                return `<div class="kpi-card"><div class="kpi-icon" style="color:${colors[i % colors.length]}"><i class="fa-solid fa-chart-simple"></i></div><div class="kpi-label">${escapeHtml(ind.name)}</div><div class="kpi-value">${formatValue(val, ind.unit)}</div></div>`;
+            }).join('')}</div>`;
+        }
+
+        function renderTableHTML() {
+            const selPeriods = periods.filter(p => filters.periodIds.includes(p.id)).sort((a, b) => a.date.localeCompare(b.date));
+            if (selPeriods.length === 0 || indicators.length === 0) {
+                return `<div class="table-card"><div class="empty-hint">Нет данных для отображения</div></div>`;
+            }
+            const multi = filters.objectIds.length > 1;
+            let header1 = `<th class="sticky-col">Объект</th>`;
+            selPeriods.forEach(p => { header1 += `<th colspan="${indicators.length}" class="period-head">${escapeHtml(p.label)}</th>`; });
+            let header2 = `<th class="sticky-col"></th>`;
+            selPeriods.forEach(() => { indicators.forEach(ind => { header2 += `<th class="ind-head">${escapeHtml(ind.name)}<br><span class="unit">${escapeHtml(ind.unit)}</span></th>`; }); });
+            let bodyRows = '';
+            if (!multi) {
+                const oid = filters.objectIds[0];
+                const obj = objects.find(o => o.id === oid);
+                bodyRows += `<tr><td class="sticky-col">${obj ? escapeHtml(obj.name) : '—'}</td>`;
+                selPeriods.forEach(p => { indicators.forEach(ind => {
+                    const d = data.find(d => d.object_id === oid && d.period_id === p.id && d.indicator_id === ind.id);
+                    bodyRows += `<td>${d ? formatValue(d.value, ind.unit) : '—'}</td>`;
+                }); });
+                bodyRows += `</tr>`;
+            } else {
+                bodyRows += `<tr class="avg-row"><td class="sticky-col">Среднее по ${filters.objectIds.length} объектам</td>`;
+                selPeriods.forEach(p => { indicators.forEach(ind => {
+                    const v = computeIndicatorPeriodAvg(p.id, ind.id, filters.objectIds);
+                    bodyRows += `<td>${formatValue(v, ind.unit)}</td>`;
+                }); });
+                bodyRows += `</tr>`;
+                if (filters.showDetail) {
+                    filters.objectIds.forEach(oid => {
+                        const obj = objects.find(o => o.id === oid);
+                        bodyRows += `<tr><td class="sticky-col detail-row">${obj ? escapeHtml(obj.name) : '—'}</td>`;
+                        selPeriods.forEach(p => { indicators.forEach(ind => {
+                            const d = data.find(d => d.object_id === oid && d.period_id === p.id && d.indicator_id === ind.id);
+                            bodyRows += `<td>${d ? formatValue(d.value, ind.unit) : '—'}</td>`;
+                        }); });
+                        bodyRows += `</tr>`;
+                    });
+                }
+            }
+            return `<div class="table-card">
+              <div class="table-card-head"><div class="table-title"><i class="fa-solid fa-table"></i> Таблица данных</div>
+              ${multi ? `<label class="detail-toggle"><input type="checkbox" ${filters.showDetail ? 'checked' : ''} onchange="toggleShowDetail()"/> Показать по каждому объекту</label>` : ''}</div>
+              <div class="table-scroll"><table class="data-table"><thead><tr>${header1}</tr><tr>${header2}</tr></thead><tbody>${bodyRows}</tbody></table></div>
+            </div>`;
+        }
+
+        function toggleShowDetail() {
+            filters.showDetail = !filters.showDetail;
+            document.getElementById('tableContainer').innerHTML = renderTableHTML();
+        }
+
+        function renderChartHTML() {
+            const selPeriods = periods.filter(p => filters.periodIds.includes(p.id)).sort((a, b) => a.date.localeCompare(b.date));
+            const options = indicators.map(ind => `<option value="${ind.id}" ${chartIndicatorId === ind.id ? 'selected' : ''}>${escapeHtml(ind.name)}</option>`).join('');
+            let svg = '';
+            if (selPeriods.length < 1 || !chartIndicatorId) {
+                svg = `<div class="empty-hint">Недостаточно данных для графика</div>`;
+            } else {
+                const points = selPeriods.map(p => ({ label: p.label, value: computeIndicatorPeriodAvg(p.id, chartIndicatorId, filters.objectIds) }));
+                const known = points.filter(pt => pt.value !== null);
+                if (known.length === 0) { svg = `<div class="empty-hint">Нет данных</div>`; }
+                else {
+                    const w = Math.max(600, points.length * 90), h = 260, padL = 60, padR = 20, padT = 20, padB = 40;
+                    const maxV = Math.max(...known.map(p => p.value));
+                    const minV = Math.min(0, Math.min(...known.map(p => p.value)));
+                    const scaleX = (i) => padL + i * ((w - padL - padR) / Math.max(1, points.length - 1));
+                    const scaleY = (v) => h - padB - ((v - minV) / ((maxV - minV) || 1)) * (h - padT - padB);
+                    let path = '', circles = '';
+                    points.forEach((pt, i) => {
+                        if (pt.value === null) return;
+                        const x = scaleX(i), y = scaleY(pt.value);
+                        path += (path === '' ? 'M' : 'L') + x + ',' + y + ' ';
+                        circles += `<circle cx="${x}" cy="${y}" r="4" fill="#26C6DA" /><text x="${x}" y="${y-12}" fill="#FFFFFF" font-size="11" text-anchor="middle">${formatValue(pt.value, '').trim()}</text>`;
+                    });
+                    let gridLines = '';
+                    for (let i = 0; i <= 4; i++) { const y = padT + i * ((h - padT - padB) / 4); gridLines += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`; }
+                    let xLabels = '';
+                    points.forEach((pt, i) => { xLabels += `<text x="${scaleX(i)}" y="${h-14}" fill="#B0D4E0" font-size="11" text-anchor="middle">${escapeHtml(pt.label)}</text>`; });
+                    svg = `<svg viewBox="0 0 ${w} ${h}" class="chart-svg">${gridLines}<path d="${path}" fill="none" stroke="#26C6DA" stroke-width="2.5"/>${circles}${xLabels}</svg>`;
+                }
+            }
+            return `<div class="chart-card"><div class="table-card-head"><div class="table-title"><i class="fa-solid fa-chart-line"></i> Динамика показателя</div><select class="select-input" onchange="changeChartIndicator(this.value)">${options}</select></div><div class="chart-scroll">${svg}</div></div>`;
+        }
+
+        function changeChartIndicator(id) { chartIndicatorId = id; document.getElementById('chartContainer').innerHTML = renderChartHTML(); }
+
+        function renderDashboardMainHTML() {
+            return `<div id="kpiContainer">${renderKPIHTML()}</div><div id="tableContainer">${renderTableHTML()}</div><div id="chartContainer">${renderChartHTML()}</div>`;
+        }
+
+        // Админ-панели
+        function renderAdminTab(tab) {
+            if (tab === 'objects') return renderObjectsAdminHTML();
+            if (tab === 'periods') return renderPeriodsAdminHTML();
+            if (tab === 'indicators') return renderIndicatorsAdminHTML();
+            if (tab === 'entry') return renderEntryHTML();
+            return '';
+        }
+
+        function renderObjectsAdminHTML() {
+            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-building"></i> Управление объектами</div>
+            <div class="admin-list">${objects.map(o => `<div class="admin-list-row">
+              ${editingObjectId === o.id ?
+                `<input type="text" id="editObjName" class="text-input" value="${escapeHtml(o.name)}"/><button class="btn btn-primary btn-sm" onclick="saveObjectEdit('${o.id}')"><i class="fa-solid fa-check"></i></button><button class="btn btn-ghost btn-sm" onclick="editingObjectId=null;renderApp();"><i class="fa-solid fa-xmark"></i></button>`
+                :
+                `<span class="admin-list-name">${escapeHtml(o.name)}</span><button class="btn btn-ghost btn-sm" onclick="editingObjectId='${o.id}';renderApp();"><i class="fa-solid fa-pen"></i></button><button class="btn btn-danger btn-sm" onclick="deleteObject('${o.id}')"><i class="fa-solid fa-trash"></i></button>`
+              }</div>`).join('')}</div>
+            <div class="admin-add-form"><input type="text" id="newObjectName" class="text-input" placeholder="Название объекта" /><button class="btn btn-primary" onclick="addObject()"><i class="fa-solid fa-plus"></i> Добавить объект</button></div></div>`;
+        }
+
+        function renderPeriodsAdminHTML() {
+            const sorted = [...periods].sort((a, b) => a.date.localeCompare(b.date));
+            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-calendar-days"></i> Управление периодами</div>
+            <div class="admin-list">${sorted.map(p => `<div class="admin-list-row"><span class="admin-list-name">${escapeHtml(p.label)} <span class="tag">${p.type === 'day' ? 'День' : 'Месяц'}</span></span><button class="btn btn-danger btn-sm" onclick="deletePeriod('${p.id}')"><i class="fa-solid fa-trash"></i></button></div>`).join('')}</div>
+            <div class="admin-add-form">
+              <div class="toggle-mini"><button class="toggle-btn ${newPeriodType === 'day' ? 'active' : ''}" onclick="setNewPeriodType('day')">День</button><button class="toggle-btn ${newPeriodType === 'month' ? 'active' : ''}" onclick="setNewPeriodType('month')">Месяц</button></div>
+              ${newPeriodType === 'day' ? `<input type="date" id="newPeriodDate" class="text-input" />` : `<input type="month" id="newPeriodMonth" class="text-input" />`}
+              <button class="btn btn-primary" onclick="addPeriod()"><i class="fa-solid fa-plus"></i> Добавить период</button>
+            </div></div>`;
+        }
+
+        function setNewPeriodType(t) { newPeriodType = t; renderApp(); }
+
+        function renderIndicatorsAdminHTML() {
+            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-list-check"></i> Управление показателями</div>
+            <div class="admin-list">${indicators.map(ind => `<div class="admin-list-row">
+              ${editingIndicatorId === ind.id ?
+                `<input type="text" id="editIndName" class="text-input" value="${escapeHtml(ind.name)}" placeholder="Название"/><input type="text" id="editIndUnit" class="text-input small" value="${escapeHtml(ind.unit)}" placeholder="Ед. изм."/><button class="btn btn-primary btn-sm" onclick="saveIndicatorEdit('${ind.id}')"><i class="fa-solid fa-check"></i></button><button class="btn btn-ghost btn-sm" onclick="editingIndicatorId=null;renderApp();"><i class="fa-solid fa-xmark"></i></button>`
+                :
+                `<span class="admin-list-name">${escapeHtml(ind.name)} <span class="tag">${escapeHtml(ind.unit)}</span></span><button class="btn btn-ghost btn-sm" onclick="editingIndicatorId='${ind.id}';renderApp();"><i class="fa-solid fa-pen"></i></button><button class="btn btn-danger btn-sm" onclick="deleteIndicator('${ind.id}')"><i class="fa-solid fa-trash"></i></button>`
+              }</div>`).join('')}</div>
+            <div class="admin-add-form"><input type="text" id="newIndicatorName" class="text-input" placeholder="Название показателя" /><input type="text" id="newIndicatorUnit" class="text-input small" placeholder="Ед. изм." /><button class="btn btn-primary" onclick="addIndicator()"><i class="fa-solid fa-plus"></i> Добавить показатель</button></div></div>`;
+        }
+
+        // Ввод данных
+        function valueForCell(objectId) {
+            const d = data.find(d => d.object_id === objectId && d.period_id === entryState.periodId && d.indicator_id === entryState.indicatorId);
+            return d ? d.value : null;
+        }
+
+        function renderEntryHTML() {
+            const sortedPeriods = [...periods].sort((a, b) => a.date.localeCompare(b.date));
+            const objOptions = `<option value="all">Все объекты</option>` + objects.map(o => `<option value="${o.id}" ${entryState.objectId === o.id ? 'selected' : ''}>${escapeHtml(o.name)}</option>`).join('');
+            const periodOptions = sortedPeriods.map(p => `<option value="${p.id}" ${entryState.periodId === p.id ? 'selected' : ''}>${escapeHtml(p.label)} (${p.type === 'day' ? 'День' : 'Месяц'})</option>`).join('');
+            const indOptions = indicators.map(ind => `<option value="${ind.id}" ${entryState.indicatorId === ind.id ? 'selected' : ''}>${escapeHtml(ind.name)}</option>`).join('');
+            let bottom = '';
+            if (entryState.objectId === 'all') {
+                bottom = `<div class="bulk-fill"><input type="number" step="any" id="bulkFillValue" class="text-input" placeholder="Значение для всех" /><button class="btn btn-ghost" onclick="fillAllEntries()"><i class="fa-solid fa-arrows-to-dot"></i> Заполнить все</button></div>
+                <div class="admin-list">${objects.map(o => {
+                    const existing = entryState.periodId && entryState.indicatorId ? valueForCell(o.id) : null;
+                    return `<div class="admin-list-row"><span class="admin-list-name">${escapeHtml(o.name)}</span><input type="number" step="any" class="text-input small bulk-input" data-oid="${o.id}" value="${existing !== null && existing !== undefined ? existing : ''}" placeholder="—" /></div>`;
+                }).join('')}</div>
+                <button class="btn btn-primary btn-block" onclick="saveAllEntries()"><i class="fa-solid fa-floppy-disk"></i> Сохранить все</button>`;
+            } else {
+                const existing = entryState.periodId && entryState.indicatorId ? valueForCell(entryState.objectId) : null;
+                bottom = `<div class="single-entry"><input type="number" step="any" id="singleEntryValue" class="text-input" value="${existing !== null && existing !== undefined ? existing : ''}" placeholder="Значение" /><button class="btn btn-primary" onclick="saveSingleEntry()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button></div>`;
+            }
+            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-keyboard"></i> Ввод данных</div>
+            <div class="entry-selects">
+              <div class="field"><label>Объект</label><select class="select-input" onchange="entryState.objectId=this.value;renderApp();">${objOptions}</select></div>
+              <div class="field"><label>Период</label><select class="select-input" onchange="entryState.periodId=this.value;renderApp();">${periodOptions}</select></div>
+              <div class="field"><label>Показатель</label><select class="select-input" onchange="entryState.indicatorId=this.value;renderApp();">${indOptions}</select></div>
+            </div>${bottom}</div>`;
+        }
+
+        async function saveSingleEntry() {
+            if (!entryState.periodId || !entryState.indicatorId) { showMessage('error','Выберите период и показатель'); return; }
+            const val = parseFloat(document.getElementById('singleEntryValue').value);
+            if (isNaN(val)) { showMessage('error','Введите числовое значение'); return; }
+            await setValue(entryState.objectId, entryState.periodId, entryState.indicatorId, val);
+            showMessage('success','Значение сохранено');
+            renderApp();
+        }
+
+        function fillAllEntries() {
+            const v = document.getElementById('bulkFillValue').value;
+            document.querySelectorAll('.bulk-input').forEach(inp => { inp.value = v; });
+        }
+
+        async function saveAllEntries() {
+            if (!entryState.periodId || !entryState.indicatorId) { showMessage('error','Выберите период и показатель'); return; }
+            const inputs = document.querySelectorAll('.bulk-input');
+            let count = 0;
+            for (const inp of inputs) {
+                const oid = inp.getAttribute('data-oid');
+                const v = inp.value;
+                if (v !== '') {
+                    const num = parseFloat(v);
+                    if (!isNaN(num)) {
+                        await setValue(oid, entryState.periodId, entryState.indicatorId, num);
+                        count++;
+                    }
+                }
+            }
+            showMessage('success','Сохранено значений: ' + count);
+            renderApp();
+        }
+
+        // ============================
+        // 13. ОСНОВНАЯ ФУНКЦИЯ РЕНДЕРИНГА
+        // ============================
+        function renderApp() {
+            const app = document.getElementById('app');
+            if (!session) {
+                app.innerHTML = renderLoginHTML();
+                return;
+            }
+            let html = renderHeaderHTML();
+            if (session.role === 'admin') html += renderNavHTML();
+            if (session.role === 'admin' && adminTab !== 'dashboard') {
+                html += `<div class="page-wrap">${renderAdminTab(adminTab)}</div>`;
+            } else {
+                html += `<div class="layout"><div class="filters-panel">${renderFiltersPanelHTML()}</div><div class="main-content">${renderDashboardMainHTML()}</div></div>`;
+            }
+            app.innerHTML = html;
+            void app.offsetHeight;
+        }
+
+        // ============================
+        // 14. ЗАПУСК
+        // ============================
+        checkSession();
+    </script>
+</body>
+</html>
