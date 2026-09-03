@@ -119,6 +119,91 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
 
+    <!-- Подключите библиотеку Supabase в шапке -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    // 1. Инициализация клиента (подставьте свои данные из Шага 4)
+    const supabaseUrl = https://fomgmsuuwahfjqimekkv.supabase.co/rest/v1/;
+    const supabaseKey = sb_publishable_V-oDfCqaUgI8a1b4PsHD4g_onYACyHE;
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    // --- Функция ЗАГРУЗКИ данных (показывает всем пользователям) ---
+    async function loadReports() {
+        const { data, error } = await supabase
+            .from('reports')
+            .select('*')
+            .order('created_at', { ascending: false }); // Сначала новые
+
+        if (error) {
+            console.error('Ошибка загрузки:', error);
+            return;
+        }
+
+        // Отображаем данные в вашем HTML (пример для DIV с id="reportList")
+        const list = document.getElementById('reportList');
+        if (list) {
+            list.innerHTML = data.map(row => 
+                `<p>${row.indicator_name}: ${row.indicator_value} (добавлено: ${new Date(row.created_at).toLocaleString()})</p>`
+            ).join('');
+        }
+    }
+
+    // --- Функция СОХРАНЕНИЯ данных (отправляет в общую БД) ---
+    async function saveReport(indicatorName, indicatorValue) {
+        // Сюда можно добавить проверку на пустые значения
+        if (!indicatorName || !indicatorValue) {
+            alert('Заполните все поля!');
+            return;
+        }
+
+        // Получаем IP пользователя (через бесплатный сервис, чтобы видеть, кто вносил)
+        let userIp = 'unknown';
+        try {
+            const res = await fetch('https://api.ipify.org?format=json');
+            const ipData = await res.json();
+            userIp = ipData.ip;
+        } catch(e) {}
+
+        const { data, error } = await supabase
+            .from('reports')
+            .insert([
+                { 
+                    indicator_name: indicatorName, 
+                    indicator_value: parseFloat(indicatorValue),
+                    user_ip: userIp 
+                }
+            ])
+            .select();
+
+        if (error) {
+            alert('Ошибка сохранения: ' + error.message);
+        } else {
+            alert('Показатель успешно сохранен!');
+            loadReports(); // Обновляем список на странице
+            // Очищаем поля формы
+            document.getElementById('nameInput').value = '';
+            document.getElementById('valueInput').value = '';
+        }
+    }
+
+    // --- Привязка кнопки к функции ---
+    // Вызываем эту функцию при загрузке страницы, чтобы сразу показать данные
+    document.addEventListener('DOMContentLoaded', () => {
+        loadReports();
+
+        // Находим кнопку отправки (допустим, у нее id="submitBtn")
+        const btn = document.getElementById('submitBtn');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                const name = document.getElementById('nameInput').value;
+                const value = document.getElementById('valueInput').value;
+                saveReport(name, value);
+            });
+        }
+    });
+</script>
+    
 </head>
 <body>
     <div id="app"></div>
