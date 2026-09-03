@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Финансовый дашборд</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root{
             --bg:#1d5363; --bg2:#143a47; --panel:rgba(255,255,255,0.05); --border:#2a6b7a;
@@ -20,7 +18,7 @@
         #app{min-height:100vh;}
         .login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
         .login-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:40px 32px;text-align:center;backdrop-filter:blur(6px);}
-        .login-logo{font-size:32px;color:var(--teal);margin-bottom:12px;}
+        .login-logo{font-size:48px;margin-bottom:12px;line-height:1;}
         .login-box h1{font-size:22px;margin:0 0 6px;font-weight:700;}
         .login-sub{color:var(--text-secondary);font-size:14px;margin:0 0 28px;line-height:1.5;}
         .login-box form{display:flex;flex-direction:column;gap:6px;text-align:left;}
@@ -42,6 +40,7 @@
         .btn-link:hover{color:var(--teal-hover);}
         .app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;}
         .app-header-left{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;}
+        .app-header-left .logo{font-size:28px;}
         .app-header-right{display:flex;align-items:center;gap:14px;}
         .role-badge{font-size:13px;color:var(--text-secondary);background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:6px 12px;border-radius:20px;}
         .app-nav{display:flex;gap:6px;padding:10px 28px;border-bottom:1px solid var(--border);overflow-x:auto;}
@@ -66,7 +65,7 @@
         .main-content{display:flex;flex-direction:column;gap:20px;min-width:0;}
         .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;}
         .kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;}
-        .kpi-icon{font-size:20px;margin-bottom:10px;}
+        .kpi-icon{font-size:24px;margin-bottom:10px;}
         .kpi-label{font-size:13px;color:var(--text-secondary);margin-bottom:6px;}
         .kpi-value{font-size:22px;font-weight:800;}
         .table-card,.chart-card,.admin-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;}
@@ -119,7 +118,7 @@
         // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // =================================================================
         let objects = [], periods = [], indicators = [], data = [];
-        let session = null; // { user, role }
+        let session = null;
         let filters = { objectIds: [], periodIds: [], periodType: 'month', showDetail: false };
         let tempObjectIds = [], tempPeriodIds = [], tempPeriodType = 'month';
         let chartIndicatorId = null, adminTab = 'dashboard';
@@ -145,7 +144,7 @@
             let el = document.getElementById('msgBanner');
             if (!el) { el = document.createElement('div'); el.id = 'msgBanner'; el.className = 'msg-banner'; document.body.appendChild(el); }
             el.className = 'msg-banner ' + type;
-            el.innerHTML = '<i class="fa-solid ' + (type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check') + '"></i> ' + text;
+            el.innerHTML = '<span>' + (type === 'error' ? '⚠️' : '✅') + '</span> ' + text;
             el.style.display = 'flex';
             clearTimeout(window.__msgTimeout);
             window.__msgTimeout = setTimeout(() => { el.style.display = 'none'; }, 3000);
@@ -172,7 +171,6 @@
                 indicators = indicatorsRes.data || [];
                 data = dataRes.data || [];
 
-                // Если объектов нет – выполняем seed
                 if (objects.length === 0) {
                     await seedData();
                     await loadAllFromSupabase();
@@ -566,13 +564,13 @@
         }
 
         // =================================================================
-        // 12. РЕНДЕРИНГ
+        // 12. РЕНДЕРИНГ (все иконки заменены на эмодзи)
         // =================================================================
         function renderLoginHTML() {
             return `
             <div class="login-page">
               <div class="login-box">
-                <div class="login-logo"><i class="fa-solid fa-chart-line"></i></div>
+                <div class="login-logo">📊</div>
                 <h1>Финансовый дашборд</h1>
                 <p class="login-sub">Войдите, чтобы увидеть показатели</p>
                 <form onsubmit="doLogin(event)">
@@ -591,23 +589,23 @@
             const roleDisplay = session.role === 'admin' ? 'Администратор' : 'Пользователь';
             return `
             <div class="app-header">
-              <div class="app-header-left"><i class="fa-solid fa-chart-line" style="color:#26C6DA"></i><span>Финансовый дашборд</span></div>
+              <div class="app-header-left"><span class="logo">📊</span><span>Финансовый дашборд</span></div>
               <div class="app-header-right">
                 <span class="role-badge">${roleDisplay}</span>
-                <button class="btn btn-ghost" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
+                <button class="btn btn-ghost" onclick="logout()">🚪 Выйти</button>
               </div>
             </div>`;
         }
 
         function renderNavHTML() {
             const tabs = [
-                { id: 'dashboard', label: 'Дашборд', icon: 'fa-gauge-high' },
-                { id: 'objects', label: 'Объекты', icon: 'fa-building' },
-                { id: 'periods', label: 'Периоды', icon: 'fa-calendar-days' },
-                { id: 'indicators', label: 'Показатели', icon: 'fa-list-check' },
-                { id: 'entry', label: 'Ввод данных', icon: 'fa-keyboard' }
+                { id: 'dashboard', label: '📊 Дашборд' },
+                { id: 'objects', label: '🏢 Объекты' },
+                { id: 'periods', label: '📅 Периоды' },
+                { id: 'indicators', label: '📋 Показатели' },
+                { id: 'entry', label: '⌨️ Ввод данных' }
             ];
-            return `<div class="app-nav">${tabs.map(t => `<button class="nav-btn ${adminTab === t.id ? 'active' : ''}" onclick="switchAdminTab('${t.id}')"><i class="fa-solid ${t.icon}"></i> ${t.label}</button>`).join('')}</div>`;
+            return `<div class="app-nav">${tabs.map(t => `<button class="nav-btn ${adminTab === t.id ? 'active' : ''}" onclick="switchAdminTab('${t.id}')">${t.label}</button>`).join('')}</div>`;
         }
 
         function switchAdminTab(tab) { adminTab = tab; renderApp(); }
@@ -623,7 +621,7 @@
             tempPeriodIds = [...filters.periodIds];
             tempPeriodType = filters.periodType;
             return `
-            <div class="panel-title"><i class="fa-solid fa-sliders"></i> Фильтры</div>
+            <div class="panel-title">⚙️ Фильтры</div>
             <div class="filter-block">
               <div class="filter-label-row"><span>Объекты</span>
                 <div class="filter-mini-actions"><button class="btn-link" onclick="selectAllObjects()">Все</button><button class="btn-link" onclick="selectNoneObjects()">Очистить</button></div>
@@ -641,7 +639,7 @@
               <div class="filter-mini-actions" style="margin:8px 0;"><button class="btn-link" onclick="selectAllPeriods()">Все</button><button class="btn-link" onclick="selectNonePeriods()">Очистить</button></div>
               <div class="checkbox-list" id="periodCheckboxContainer">${renderPeriodCheckboxesInner()}</div>
             </div>
-            <button class="btn btn-primary btn-block" onclick="applyFilters()"><i class="fa-solid fa-check"></i> Применить</button>`;
+            <button class="btn btn-primary btn-block" onclick="applyFilters()">✅ Применить</button>`;
         }
 
         function renderKPIHTML() {
@@ -649,7 +647,7 @@
             const colors = ['#26C6DA','#F9A825','#AB47BC','#66BB6A','#EF5350'];
             return `<div class="kpi-grid">${indicators.map((ind, i) => {
                 const val = computeKPI(ind.id);
-                return `<div class="kpi-card"><div class="kpi-icon" style="color:${colors[i % colors.length]}"><i class="fa-solid fa-chart-simple"></i></div><div class="kpi-label">${escapeHtml(ind.name)}</div><div class="kpi-value">${formatValue(val, ind.unit)}</div></div>`;
+                return `<div class="kpi-card"><div class="kpi-icon" style="color:${colors[i % colors.length]}">📈</div><div class="kpi-label">${escapeHtml(ind.name)}</div><div class="kpi-value">${formatValue(val, ind.unit)}</div></div>`;
             }).join('')}</div>`;
         }
 
@@ -693,7 +691,7 @@
                 }
             }
             return `<div class="table-card">
-              <div class="table-card-head"><div class="table-title"><i class="fa-solid fa-table"></i> Таблица данных</div>
+              <div class="table-card-head"><div class="table-title">📊 Таблица данных</div>
               ${multi ? `<label class="detail-toggle"><input type="checkbox" ${filters.showDetail ? 'checked' : ''} onchange="toggleShowDetail()"/> Показать по каждому объекту</label>` : ''}</div>
               <div class="table-scroll"><table class="data-table"><thead><tr>${header1}</tr><tr>${header2}</tr></thead><tbody>${bodyRows}</tbody></table></div>
             </div>`;
@@ -734,7 +732,7 @@
                     svg = `<svg viewBox="0 0 ${w} ${h}" class="chart-svg">${gridLines}<path d="${path}" fill="none" stroke="#26C6DA" stroke-width="2.5"/>${circles}${xLabels}</svg>`;
                 }
             }
-            return `<div class="chart-card"><div class="table-card-head"><div class="table-title"><i class="fa-solid fa-chart-line"></i> Динамика показателя</div><select class="select-input" onchange="changeChartIndicator(this.value)">${options}</select></div><div class="chart-scroll">${svg}</div></div>`;
+            return `<div class="chart-card"><div class="table-card-head"><div class="table-title">📈 Динамика показателя</div><select class="select-input" onchange="changeChartIndicator(this.value)">${options}</select></div><div class="chart-scroll">${svg}</div></div>`;
         }
 
         function changeChartIndicator(id) { chartIndicatorId = id; document.getElementById('chartContainer').innerHTML = renderChartHTML(); }
@@ -753,38 +751,38 @@
         }
 
         function renderObjectsAdminHTML() {
-            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-building"></i> Управление объектами</div>
+            return `<div class="admin-card"><div class="admin-card-title">🏢 Управление объектами</div>
             <div class="admin-list">${objects.map(o => `<div class="admin-list-row">
               ${editingObjectId === o.id ?
-                `<input type="text" id="editObjName" class="text-input" value="${escapeHtml(o.name)}"/><button class="btn btn-primary btn-sm" onclick="saveObjectEdit('${o.id}')"><i class="fa-solid fa-check"></i></button><button class="btn btn-ghost btn-sm" onclick="editingObjectId=null;renderApp();"><i class="fa-solid fa-xmark"></i></button>`
+                `<input type="text" id="editObjName" class="text-input" value="${escapeHtml(o.name)}"/><button class="btn btn-primary btn-sm" onclick="saveObjectEdit('${o.id}')">✅</button><button class="btn btn-ghost btn-sm" onclick="editingObjectId=null;renderApp();">❌</button>`
                 :
-                `<span class="admin-list-name">${escapeHtml(o.name)}</span><button class="btn btn-ghost btn-sm" onclick="editingObjectId='${o.id}';renderApp();"><i class="fa-solid fa-pen"></i></button><button class="btn btn-danger btn-sm" onclick="deleteObject('${o.id}')"><i class="fa-solid fa-trash"></i></button>`
+                `<span class="admin-list-name">${escapeHtml(o.name)}</span><button class="btn btn-ghost btn-sm" onclick="editingObjectId='${o.id}';renderApp();">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteObject('${o.id}')">🗑️</button>`
               }</div>`).join('')}</div>
-            <div class="admin-add-form"><input type="text" id="newObjectName" class="text-input" placeholder="Название объекта" /><button class="btn btn-primary" onclick="addObject()"><i class="fa-solid fa-plus"></i> Добавить объект</button></div></div>`;
+            <div class="admin-add-form"><input type="text" id="newObjectName" class="text-input" placeholder="Название объекта" /><button class="btn btn-primary" onclick="addObject()">➕ Добавить объект</button></div></div>`;
         }
 
         function renderPeriodsAdminHTML() {
             const sorted = [...periods].sort((a, b) => a.date.localeCompare(b.date));
-            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-calendar-days"></i> Управление периодами</div>
-            <div class="admin-list">${sorted.map(p => `<div class="admin-list-row"><span class="admin-list-name">${escapeHtml(p.label)} <span class="tag">${p.type === 'day' ? 'День' : 'Месяц'}</span></span><button class="btn btn-danger btn-sm" onclick="deletePeriod('${p.id}')"><i class="fa-solid fa-trash"></i></button></div>`).join('')}</div>
+            return `<div class="admin-card"><div class="admin-card-title">📅 Управление периодами</div>
+            <div class="admin-list">${sorted.map(p => `<div class="admin-list-row"><span class="admin-list-name">${escapeHtml(p.label)} <span class="tag">${p.type === 'day' ? 'День' : 'Месяц'}</span></span><button class="btn btn-danger btn-sm" onclick="deletePeriod('${p.id}')">🗑️</button></div>`).join('')}</div>
             <div class="admin-add-form">
               <div class="toggle-mini"><button class="toggle-btn ${newPeriodType === 'day' ? 'active' : ''}" onclick="setNewPeriodType('day')">День</button><button class="toggle-btn ${newPeriodType === 'month' ? 'active' : ''}" onclick="setNewPeriodType('month')">Месяц</button></div>
               ${newPeriodType === 'day' ? `<input type="date" id="newPeriodDate" class="text-input" />` : `<input type="month" id="newPeriodMonth" class="text-input" />`}
-              <button class="btn btn-primary" onclick="addPeriod()"><i class="fa-solid fa-plus"></i> Добавить период</button>
+              <button class="btn btn-primary" onclick="addPeriod()">➕ Добавить период</button>
             </div></div>`;
         }
 
         function setNewPeriodType(t) { newPeriodType = t; renderApp(); }
 
         function renderIndicatorsAdminHTML() {
-            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-list-check"></i> Управление показателями</div>
+            return `<div class="admin-card"><div class="admin-card-title">📋 Управление показателями</div>
             <div class="admin-list">${indicators.map(ind => `<div class="admin-list-row">
               ${editingIndicatorId === ind.id ?
-                `<input type="text" id="editIndName" class="text-input" value="${escapeHtml(ind.name)}" placeholder="Название"/><input type="text" id="editIndUnit" class="text-input small" value="${escapeHtml(ind.unit)}" placeholder="Ед. изм."/><button class="btn btn-primary btn-sm" onclick="saveIndicatorEdit('${ind.id}')"><i class="fa-solid fa-check"></i></button><button class="btn btn-ghost btn-sm" onclick="editingIndicatorId=null;renderApp();"><i class="fa-solid fa-xmark"></i></button>`
+                `<input type="text" id="editIndName" class="text-input" value="${escapeHtml(ind.name)}" placeholder="Название"/><input type="text" id="editIndUnit" class="text-input small" value="${escapeHtml(ind.unit)}" placeholder="Ед. изм."/><button class="btn btn-primary btn-sm" onclick="saveIndicatorEdit('${ind.id}')">✅</button><button class="btn btn-ghost btn-sm" onclick="editingIndicatorId=null;renderApp();">❌</button>`
                 :
-                `<span class="admin-list-name">${escapeHtml(ind.name)} <span class="tag">${escapeHtml(ind.unit)}</span></span><button class="btn btn-ghost btn-sm" onclick="editingIndicatorId='${ind.id}';renderApp();"><i class="fa-solid fa-pen"></i></button><button class="btn btn-danger btn-sm" onclick="deleteIndicator('${ind.id}')"><i class="fa-solid fa-trash"></i></button>`
+                `<span class="admin-list-name">${escapeHtml(ind.name)} <span class="tag">${escapeHtml(ind.unit)}</span></span><button class="btn btn-ghost btn-sm" onclick="editingIndicatorId='${ind.id}';renderApp();">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteIndicator('${ind.id}')">🗑️</button>`
               }</div>`).join('')}</div>
-            <div class="admin-add-form"><input type="text" id="newIndicatorName" class="text-input" placeholder="Название показателя" /><input type="text" id="newIndicatorUnit" class="text-input small" placeholder="Ед. изм." /><button class="btn btn-primary" onclick="addIndicator()"><i class="fa-solid fa-plus"></i> Добавить показатель</button></div></div>`;
+            <div class="admin-add-form"><input type="text" id="newIndicatorName" class="text-input" placeholder="Название показателя" /><input type="text" id="newIndicatorUnit" class="text-input small" placeholder="Ед. изм." /><button class="btn btn-primary" onclick="addIndicator()">➕ Добавить показатель</button></div></div>`;
         }
 
         function valueForCell(objectId) {
@@ -799,17 +797,17 @@
             const indOptions = indicators.map(ind => `<option value="${ind.id}" ${entryState.indicatorId === ind.id ? 'selected' : ''}>${escapeHtml(ind.name)}</option>`).join('');
             let bottom = '';
             if (entryState.objectId === 'all') {
-                bottom = `<div class="bulk-fill"><input type="number" step="any" id="bulkFillValue" class="text-input" placeholder="Значение для всех" /><button class="btn btn-ghost" onclick="fillAllEntries()"><i class="fa-solid fa-arrows-to-dot"></i> Заполнить все</button></div>
+                bottom = `<div class="bulk-fill"><input type="number" step="any" id="bulkFillValue" class="text-input" placeholder="Значение для всех" /><button class="btn btn-ghost" onclick="fillAllEntries()">📌 Заполнить все</button></div>
                 <div class="admin-list">${objects.map(o => {
                     const existing = entryState.periodId && entryState.indicatorId ? valueForCell(o.id) : null;
                     return `<div class="admin-list-row"><span class="admin-list-name">${escapeHtml(o.name)}</span><input type="number" step="any" class="text-input small bulk-input" data-oid="${o.id}" value="${existing !== null && existing !== undefined ? existing : ''}" placeholder="—" /></div>`;
                 }).join('')}</div>
-                <button class="btn btn-primary btn-block" onclick="saveAllEntries()"><i class="fa-solid fa-floppy-disk"></i> Сохранить все</button>`;
+                <button class="btn btn-primary btn-block" onclick="saveAllEntries()">💾 Сохранить все</button>`;
             } else {
                 const existing = entryState.periodId && entryState.indicatorId ? valueForCell(entryState.objectId) : null;
-                bottom = `<div class="single-entry"><input type="number" step="any" id="singleEntryValue" class="text-input" value="${existing !== null && existing !== undefined ? existing : ''}" placeholder="Значение" /><button class="btn btn-primary" onclick="saveSingleEntry()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button></div>`;
+                bottom = `<div class="single-entry"><input type="number" step="any" id="singleEntryValue" class="text-input" value="${existing !== null && existing !== undefined ? existing : ''}" placeholder="Значение" /><button class="btn btn-primary" onclick="saveSingleEntry()">💾 Сохранить</button></div>`;
             }
-            return `<div class="admin-card"><div class="admin-card-title"><i class="fa-solid fa-keyboard"></i> Ввод данных</div>
+            return `<div class="admin-card"><div class="admin-card-title">⌨️ Ввод данных</div>
             <div class="entry-selects">
               <div class="field"><label>Объект</label><select class="select-input" onchange="entryState.objectId=this.value;renderApp();">${objOptions}</select></div>
               <div class="field"><label>Период</label><select class="select-input" onchange="entryState.periodId=this.value;renderApp();">${periodOptions}</select></div>
