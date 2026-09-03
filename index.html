@@ -130,17 +130,8 @@
         let chartIndicatorId=null, adminTab='dashboard', newPeriodType='month';
         let editingObjectId=null, editingIndicatorId=null;
         let entryState = {objectId:'all', periodId:null, indicatorId:null};
-        const SUPABASE_URL = 'https://fomgmsuuwahfjqimekkv.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_V-oDfCqaUgI8a1b4PsHD4g_onYACyHE';
-        const SUPABASE_TABLE = 'app_state';
-        const SUPABASE_ROW_ID = 1;
-        function supabaseHeaders(extra){
-            return Object.assign({
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer '+SUPABASE_KEY,
-                'Content-Type': 'application/json'
-            }, extra||{});
-        }
+        const KVDB_BASE = 'https://kvdb.io';
+        const SYNC_BUCKET = 'findash-global-shared-storage-9f2a1c7e';
         let syncStatus = 'idle';
         let syncPollTimer = null;
         let lastRemoteUpdatedAt = 0;
@@ -179,23 +170,22 @@
         }
         async function pullRemote(initial){
             try{
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${SUPABASE_ROW_ID}&select=payload,updated_at`, {headers: supabaseHeaders(), cache:'no-store'});
-                if(!res.ok) throw new Error('pull failed');
-                const rows = await res.json();
-                if(!Array.isArray(rows) || rows.length===0){
+                const res = await fetch(KVDB_BASE+'/'+SYNC_BUCKET+'/appstate', {cache:'no-store'});
+                if(res.status===404){
                     updateSyncStatus('ok');
                     await pushRemote(true);
                     return;
                 }
-                const remote = rows[0];
-                const remoteUpdatedAt = remote && typeof remote.updated_at==='number' ? remote.updated_at : 0;
-                if(remote && remote.payload && remoteUpdatedAt>lastRemoteUpdatedAt){
-                    lastRemoteUpdatedAt = remoteUpdatedAt;
-                    const p = remote.payload;
-                    objects = p.objects || objects;
-                    periods = p.periods || periods;
-                    indicators = p.indicators || indicators;
-                    data = p.data || data;
+                if(!res.ok) throw new Error('pull failed');
+                const text = await res.text();
+                let remote = null;
+                try{ remote = JSON.parse(text); } catch(parseErr){ remote = null; }
+                if(remote && typeof remote.updatedAt==='number' && remote.updatedAt>lastRemoteUpdatedAt){
+                    lastRemoteUpdatedAt = remote.updatedAt;
+                    objects = remote.objects || objects;
+                    periods = remote.periods || periods;
+                    indicators = remote.indicators || indicators;
+                    data = remote.data || data;
                     localStorage.setItem(STORAGE_KEYS.objects, JSON.stringify(objects));
                     localStorage.setItem(STORAGE_KEYS.periods, JSON.stringify(periods));
                     localStorage.setItem(STORAGE_KEYS.indicators, JSON.stringify(indicators));
@@ -216,16 +206,11 @@
         }
         async function pushRemote(){
             updateSyncStatus('syncing');
-            const updatedAt = Date.now();
-            const payload = {objects, periods, indicators, data};
+            const payload = JSON.stringify({objects, periods, indicators, data, updatedAt: Date.now()});
             try{
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?on_conflict=id`, {
-                    method:'POST',
-                    headers: supabaseHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
-                    body: JSON.stringify([{id:SUPABASE_ROW_ID, payload, updated_at: updatedAt}])
-                });
+                const res = await fetch(KVDB_BASE+'/'+SYNC_BUCKET+'/appstate', {method:'PUT', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body: payload});
                 if(!res.ok) throw new Error('push failed');
-                lastRemoteUpdatedAt = updatedAt;
+                lastRemoteUpdatedAt = JSON.parse(payload).updatedAt;
                 updateSyncStatus('ok');
             } catch(e){ updateSyncStatus('error'); }
         }
