@@ -38,49 +38,61 @@
     <div id="app"></div>
     <script>
         (function() {
-            // ===================== КОНФИГ =====================
             const SUPABASE_URL = 'https://rytseubhyqcflfavswxj.supabase.co';
             const SUPABASE_ANON_KEY = 'sb_publishable_EZo58WdexigTVa0JUFfwjw_-6tae58Y';
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             let session = null;
 
-            // ===================== ФУНКЦИЯ ВХОДА =====================
             async function doLogin(e) {
                 e.preventDefault();
                 const u = document.getElementById('loginUser').value.trim();
                 const p = document.getElementById('loginPass').value;
                 const errorDiv = document.getElementById('loginError');
                 errorDiv.style.display = 'none';
+                errorDiv.textContent = '';
 
                 try {
                     let email = u;
-                    // Если пользователь ввёл только имя, добавляем @test.ru
                     if (!email.includes('@')) email = u + '@test.ru';
-                    
+
+                    // Шаг 1: Вход
                     const { data, error } = await supabase.auth.signInWithPassword({ email, password: p });
                     if (error) throw error;
-                    
-                    // Получаем роль
-                    const { data: profile, error: profileErr } = await supabase
+
+                    const userId = data.user.id;
+
+                    // Шаг 2: Проверить, есть ли профиль
+                    let { data: profile, error: profileError } = await supabase
                         .from('profiles')
                         .select('role')
-                        .eq('id', data.user.id)
-                        .single();
-                    if (profileErr) throw profileErr;
-                    
+                        .eq('id', userId)
+                        .maybeSingle(); // используем maybeSingle вместо single
+
+                    // Если профиль не найден, создаём его с ролью 'user'
+                    if (!profile && !profileError) {
+                        const { data: newProfile, error: insertError } = await supabase
+                            .from('profiles')
+                            .insert([{ id: userId, role: 'user' }])
+                            .select('role')
+                            .maybeSingle();
+                        if (insertError) throw insertError;
+                        profile = newProfile;
+                    } else if (profileError) {
+                        throw profileError;
+                    }
+
+                    // Шаг 3: Сохраняем сессию и роль
                     session = { user: data.user, role: profile.role };
                     localStorage.setItem('supabaseSession', JSON.stringify(data.session));
                     renderApp();
                 } catch (err) {
                     console.error('Ошибка входа:', err);
-                    // Показываем понятную ошибку
                     errorDiv.textContent = 'Ошибка: ' + (err.message || 'Неверные учётные данные');
                     errorDiv.style.display = 'block';
                 }
             }
 
-            // ===================== ВЫХОД =====================
             async function logout() {
                 await supabase.auth.signOut();
                 session = null;
@@ -88,7 +100,6 @@
                 renderApp();
             }
 
-            // ===================== РЕНДЕРИНГ =====================
             function renderLogin() {
                 return `
                 <div class="login-page">
@@ -101,7 +112,7 @@
                       <input type="text" id="loginUser" required autocomplete="username" placeholder="user, admin или user@test.ru" />
                       <label>Пароль</label>
                       <input type="password" id="loginPass" required autocomplete="current-password" placeholder="Vadim02052026 или Anton02052026" />
-                      <div class="login-error" id="loginError">Неверные учётные данные</div>
+                      <div class="login-error" id="loginError"></div>
                       <button type="submit" class="btn">Войти</button>
                     </form>
                   </div>
@@ -133,7 +144,6 @@
                 }
             }
 
-            // ===================== ВОССТАНОВЛЕНИЕ СЕССИИ =====================
             async function checkSession() {
                 try {
                     const stored = localStorage.getItem('supabaseSession');
@@ -141,7 +151,11 @@
                         const sess = JSON.parse(stored);
                         const { data: { session: current } } = await supabase.auth.getSession();
                         if (current) {
-                            const { data: profile } = await supabase.from('profiles').select('role').eq('id', current.user.id).single();
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('role')
+                                .eq('id', current.user.id)
+                                .maybeSingle();
                             if (profile) {
                                 session = { user: current.user, role: profile.role };
                                 renderApp();
@@ -156,7 +170,6 @@
                 }
             }
 
-            // ===================== ЗАПУСК =====================
             window.doLogin = doLogin;
             window.logout = logout;
             checkSession();
